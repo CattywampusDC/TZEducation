@@ -1,0 +1,246 @@
+#Written in R
+#In progress code for data cleaning and visualization of schools
+#will eventually include other metrics like school performance, infrastructure, population and poverty data, etc
+
+library(readstata13)
+library(maptools)
+library(leaflet)
+library(rgdal)
+library(tidyr)
+library(dplyr)
+library(raster)
+library(htmlwidgets)
+
+
+#move into shiny or tableau
+#start adding exam outcomes and enrollment data
+#mapping algorithm
+#change poverty overlay legend
+#add population overlay
+
+#IDEAS
+#ability to toggle on/off population and poverty
+#also select the level of population and poverty (aggregation level)
+#select school type - arrange by color or just select certain types
+#school type aggregation by ward, etc
+#select exam results - by color or just select certain bands
+#size by enrollment - by color or by dot size; enrollment aggregation
+#select best x% of schools - where are they located?
+#step up a level -> on a ward level, 
+#Select DREAMS districts separately
+
+#DATA 
+
+twawezaSchools <- read.dta13("Twaweza Data/TZ14_school.dta")
+twawezaVillages <- read.dta13("Twaweza Data/TZ14_village.dta")
+twawezaHouseholds <- read.dta13("Twaweza Data/TZ14_hhld.dta")
+
+primaryLocPerf2014 <- read.csv("Education/Exam outcomes and school performance/PrimarySchoolsPerfomanceAndLocation-2014.csv")
+secondaryLocPerf2014 <-read.csv("Education/Exam outcomes and school performance/SecondarySchoolsPerfomanceAndLocations-2014.csv")
+primaryEnrollment2016 <- read.csv("Education/Enrollment/Enrolment-in-Primary-Schools-by-Gender-and-Grade-2016.csv")
+secondaryEnrollment2016 <- read.csv("Education/Enrollment/Enrolment-in-Secondary-Schools-by-Gender-and-Grade-2016.csv")
+
+#importing maps
+RegionMap <- readShapeSpatial("GIS_Maps/Regions.shp", proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+DistrictMap <- readShapeSpatial("GIS_Maps/Districts.shp", proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+#I need a ward map
+
+#PopMap <- readGDAL("Population/WorldPop/TZA_popmap15adj_v2b.tif")
+PovertyMap <- readGDAL("Population/WorldPop_Poverty/tza10povmpi.tif")
+PovertyRaster <- raster(PovertyMap)
+#I need census data aggregated by ward, district, and region
+#Could use census data / sq mile for density
+
+
+
+#CLEANING AND JOINING
+
+#By school
+
+#To add: Exam results, Ranks, Enrollment by age and gender
+
+primaryLocPerf2014$LEVEL <- "PRIMARY"
+secondaryLocPerf2014$LEVEL <- "SECONDARY"
+
+SchoolMaster <- rbind(primaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL", "OWNERSHIP", "LONGITUDE", "LATITUDE")], 
+                      secondaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL","OWNERSHIP", "LONGITUDE", "LATITUDE")])
+
+SchoolPlot <- SchoolMaster
+#for(i in seq_along(primaryEnrollment2016)){
+#  for(i in 1:2){
+#    print(grep(primaryEnrollment2016$REGION[1], SchoolMaster$REGION))}{
+#      
+#    if(grep(primaryEnrollment2016$WARD[i], SchoolMaster$WARD)){
+#      print(primaryEnrollment2016$WARD)
+#    }
+#  }
+#}
+#if district is same, if ward is same, if contains 4 same letters, print if more than one, else assign
+  #don't search already assigned indices
+
+#By ward 
+
+
+WardMaster <- SchoolMaster %>% 
+                select(-CODE, -NAME, -LONGITUDE, -LATITUDE) %>%
+                group_by(REGION, DISTRICT, WARD, LEVEL, OWNERSHIP) %>%
+                mutate(COUNT = 1) %>%
+                summarize(COUNT = sum(COUNT))  
+                #add averaging for other stats, summarize_at or summarize_if are options
+
+#make a version that condenses to all ownership types
+
+
+
+#By district
+#To add: Make sure the enrollment figures match, dropout rates, desks, books
+
+DistrictMaster <- WardMaster %>% 
+                    ungroup() %>%
+                    select(-WARD) %>%
+                    group_by(REGION, DISTRICT, LEVEL, OWNERSHIP) %>%
+                    summarize(COUNT = sum(COUNT)) 
+
+#DistrictMaster needs to have the same names as the DistrictMap
+DistrictNames <- factor(toupper(sort(DistrictMap@data$District_N)))
+levels(DistrictMaster$DISTRICT) <- sort(levels(DistrictMaster$DISTRICT))
+
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ARUSHA(M)")] <- levels(DistrictNames)[2]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BABATI MJINI")] <- levels(DistrictNames)[4]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BABATI(V)")] <- levels(DistrictNames)[3]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BARIADI MJI")] <- levels(DistrictNames)[7]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BARIADI VIJIJINI")] <- levels(DistrictNames)[7]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA MANISPAA")] <- levels(DistrictNames)[11]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA RURAL")] <- levels(DistrictNames)[10]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA(V)")] <- levels(DistrictNames)[10]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="DODOMA(M)")] <- levels(DistrictNames)[21]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="GEITA MJI")] <- levels(DistrictNames)[23]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="GEITA VIJIJINI")] <- levels(DistrictNames)[23]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ILALA(M)")] <- levels(DistrictNames)[30]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ILALA(V)")] <- levels(DistrictNames)[30]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA RURAL")] <- levels(DistrictNames)[34]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA(M)")] <- levels(DistrictNames)[35]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA(V)")] <- levels(DistrictNames)[34]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA RURAL")] <- levels(DistrictNames)[52]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA UJIJI MUNICIPAL")] <- levels(DistrictNames)[53]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA(M)")] <- levels(DistrictNames)[53]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA(V)")] <- levels(DistrictNames)[52]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KINONDONI(M)")] <- levels(DistrictNames)[59]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KINONDONI(V)")] <- levels(DistrictNames)[59]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KOROGWE MJI")] <- levels(DistrictNames)[66]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KOROGWE VIJIJINI")] <- levels(DistrictNames)[65]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI RURAL")] <- levels(DistrictNames)[71]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI(M)")] <- levels(DistrictNames)[72]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI(V)")] <- levels(DistrictNames)[71]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MASASI MJI")] <- levels(DistrictNames)[85]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA RURAL")] <- levels(DistrictNames)[88]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA(M)")] <- levels(DistrictNames)[89]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA(V)")] <- levels(DistrictNames)[88]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MJI MAKAMBAKO")] <- levels(DistrictNames)[81]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOROGORO(M)")] <- levels(DistrictNames)[108]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOROGORO(V)")] <- levels(DistrictNames)[107]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI MUNICIPAL")] <- levels(DistrictNames)[110]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI(M)")] <- levels(DistrictNames)[110]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI(V)")] <- levels(DistrictNames)[109]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MJI NJOMBE")] <- levels(DistrictNames)[130]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MPANDA MJI")] <- levels(DistrictNames)[112]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MPANDA VIJIJINI")] <- levels(DistrictNames)[111]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA MANISPAA")] <- levels(DistrictNames)[115]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA RURAL")] <- levels(DistrictNames)[114]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA(V)")] <- levels(DistrictNames)[114]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA MUNICIPAL")] <- levels(DistrictNames)[120]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA(M)")] <- levels(DistrictNames)[120]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA(V)")] <- levels(DistrictNames)[119]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="NJOMBE VIJIJINI")] <- levels(DistrictNames)[129]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA (M)")] <- levels(DistrictNames)[146]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA RURAL")] <- levels(DistrictNames)[145]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA(V)")] <- levels(DistrictNames)[145]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA RURAL")] <- levels(DistrictNames)[152]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA(M)")] <- levels(DistrictNames)[153]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA(V)")] <- levels(DistrictNames)[152]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA (M)")] <- levels(DistrictNames)[155]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA RURAL")] <- levels(DistrictNames)[154]
+levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA(V)")] <- levels(DistrictNames)[154]
+
+
+setdiff(levels(DistrictMaster$DISTRICT), DistrictNames)
+levels(DistrictMaster$DISTRICT)
+levels(DistrictNames)
+
+#make a version that condenses to all ownership types
+
+
+
+#By region
+
+RegionMaster <- DistrictMaster %>% 
+                    ungroup() %>%
+                    select(-DISTRICT) %>%
+                    group_by(REGION, LEVEL, OWNERSHIP) %>%
+                    summarize(COUNT = sum(COUNT))
+
+#make a version that condenses to all ownership types
+
+
+
+
+
+#MAPPING
+#Underlay population, underlay poverty
+#univariate plotting
+#how can i do multivariate plotting?
+
+Popup <- paste("<b> School: ", SchoolMaster$NAME, "</b>", "<br>",
+               "Level: ", SchoolMaster$LEVEL, "<br>",
+               "Ward: ", SchoolMaster$WARD, "<br>",
+               "Ownership: ", SchoolMaster$OWNERSHIP)
+
+SchoolMaster$LevelOwnership <- with(SchoolMaster, interaction(LEVEL, OWNERSHIP, sep = " ", drop = TRUE))
+SchoolMaster$LevelOwnership <- factor(SchoolMaster$LevelOwnership, levels = c("PRIMARY GOVERNMENT", "PRIMARY NON GOVERNMENT", "SECONDARY GOVERNMENT", 
+                                       "SECONDARY NON GOVERNMENT", "PRIMARY", "SECONDARY"))
+
+SchoolPal <- colorFactor(palette = c("royalblue","royalblue4", "green", "green4", "grey", "grey"), 
+                         domain = SchoolMaster$LevelOwnership)
+#should pick better colors, should make secondary / primary without specified ownership the correct color
+PovPal <- colorNumeric(c("#000000", "#666666", "#FFFFFF"), 
+                       values(PovertyRaster),
+                       na.color = "transparent")
+#PopPal <- colorNumeric(c("#000000", "#666666", "#FFFFFF"), 
+#                       values(PoPulationRaster),
+#                       na.color = "transparent")
+
+
+SchoolMap <- leaflet(SchoolMaster) %>%    
+                addTiles() %>%
+                addRasterImage(PovertyRaster, 
+                               colors=PovPal, 
+                               opacity = 0.5, 
+                               maxBytes = 123123123) %>%
+                addLegend(pal = PovPal, 
+                          values = values(PovertyRaster),
+                          #labels = values(PovertyRaster*100), figure out a way to percentagise this
+                          title = "% In Poverty") %>%
+                addCircleMarkers(lat = ~LATITUDE, 
+                                 lng = ~LONGITUDE, 
+                                 radius = 0.1, 
+                                 color = ~SchoolPal(LevelOwnership), 
+                                 fillColor = ~SchoolPal(LevelOwnership),
+                                 opacity = 0.8,
+                           #add a size thing for enrollment
+                                 popup = ~Popup) %>%
+                addLegend("bottomleft", #this appears if i take out the providertiles
+                          title = "School Type",
+                          pal = SchoolPal,
+                          values = ~LevelOwnership,
+                          opacity = 1,
+                          na.label = "NOT SPECIFIED") %>%
+                setView(lng = 34.8888, 
+                        lat = -6.3690, 
+                        zoom = 5) 
+
+saveWidget(SchoolMap, file = "SchoolMap.html", selfcontained = TRUE, libdir = 'leafletwidget_libs')
+
+
+plot(PovertyMap)
+plot(PopMap)
+
