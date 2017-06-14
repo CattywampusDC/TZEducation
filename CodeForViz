@@ -10,237 +10,1791 @@ library(tidyr)
 library(dplyr)
 library(raster)
 library(htmlwidgets)
+library(RColorBrewer)
+library(shiny)
+library(ggplot2)
+library(tmap)
+library(DT)
+library(plotly)
+library(readxl)
 
 
-#move into shiny or tableau
-#start adding exam outcomes and enrollment data
-#mapping algorithm
-#change poverty overlay legend
-#add population overlay
 
-#IDEAS
-#ability to toggle on/off population and poverty
-#also select the level of population and poverty (aggregation level)
-#select school type - arrange by color or just select certain types
-#school type aggregation by ward, etc
-#select exam results - by color or just select certain bands
+`%notin%` <- Negate(`%in%`)
+
+#IDEAS####
+#also select the level of population and poverty (district and region aggregation level)
 #size by enrollment - by color or by dot size; enrollment aggregation
 #select best x% of schools - where are they located?
-#step up a level -> on a ward level, 
 #Select DREAMS districts separately
 
-#DATA 
+#DATA IMPORTING#####################################################
 
-twawezaSchools <- read.dta13("Twaweza Data/TZ14_school.dta")
-twawezaVillages <- read.dta13("Twaweza Data/TZ14_village.dta")
-twawezaHouseholds <- read.dta13("Twaweza Data/TZ14_hhld.dta")
+#twawezaSchools <- read.dta13("Twaweza Data/TZ14_school.dta")
+#twawezaVillages <- read.dta13("Twaweza Data/TZ14_village.dta")
+#twawezaHouseholds <- read.dta13("Twaweza Data/TZ14_hhld.dta")
 
-primaryLocPerf2014 <- read.csv("Education/Exam outcomes and school performance/PrimarySchoolsPerfomanceAndLocation-2014.csv")
-secondaryLocPerf2014 <-read.csv("Education/Exam outcomes and school performance/SecondarySchoolsPerfomanceAndLocations-2014.csv")
-primaryEnrollment2016 <- read.csv("Education/Enrollment/Enrolment-in-Primary-Schools-by-Gender-and-Grade-2016.csv")
-secondaryEnrollment2016 <- read.csv("Education/Enrollment/Enrolment-in-Secondary-Schools-by-Gender-and-Grade-2016.csv")
+primaryLocPerf2014 <- read.csv("data/PrimarySchoolsPerfomanceAndLocation-2014.csv")
+secondaryLocPerf2014 <-read.csv("data/SecondarySchoolsPerfomanceAndLocations-2014.csv")
+#primaryEnrollment2016 <- read.csv("data/Enrolment-in-Primary-Schools-by-Gender-and-Grade-2016.csv")
+#secondaryEnrollment2016 <- read.csv("data/Enrolment-in-Secondary-Schools-by-Gender-and-Grade-2016.csv")
+#DistrictInfrastructure <- read.csv("TanzanianSchoolInfrastructureData.csv")
+
+#importing infrastructure
+#district level
+#Original Textbook Data
+#textbooks_prim_schools_2012 = read.csv("/Users/basil/Downloads/Number-of-Textbooks-in-Primary-Schools-by-District-2012.csv", header = TRUE, stringsAsFactors = FALSE)
+#textbooks_prim_schools_2013 = read.csv("/Users/basil/Downloads/Number-of-Textbooks-in-Primary-Schools-by-District-2013.csv", header = TRUE, stringsAsFactors = FALSE)
+#textbooks_second_schools_2012 = read.csv("/Users/basil/Downloads/Number-of-Textbooks-in-Secondary-Schools-by-District-2012.csv", header = TRUE, stringsAsFactors = FALSE)
+#textbooks_second_schools_2013 = read.csv("/Users/basil/Downloads/Number-of-Text-Books-in-Secondary-Schools-by-Type-2013.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#Original Classroom Data
+#class_second_schools_2013 = read.csv("/Users/basil/Downloads/Number-of-Classrooms-in-Secondary-Schools-by-Region-2013.csv", header = TRUE, stringsAsFactors = FALSE)
+#class_pupil_ratio_second = read.csv("/Users/basil/Downloads/Pupil-Class-Room-Ratio-in-Secondary-School.csv", header = TRUE, stringsAsFactors = FALSE)
+#class_pupil_ratio_prim_2014 = read.csv("/Users/basil/Downloads/council-primary-pupil-Classroom-Ratio-2014.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#Original Desk Data
+#desks_prim_schools_2012 = read.csv("/Users/basil/Downloads/Number-of-Desks-in-Primary-Schools-by-Region-2012.csv", header = TRUE, stringsAsFactors = FALSE)
+#desks_prim_schools_2013 = read.csv("/Users/basil/Downloads/Number-of-Desks-in-Primary-Schools-by-Region-2013.csv", header = TRUE, stringsAsFactors = FALSE)
+#desks_prim = read.csv("/Users/basil/Downloads/Number-of-Desks-in-Primary.csv", header = TRUE, stringsAsFactors = FALSE)
+#desks_pupil_ratio_prim_2014 = read.csv("/Users/basil/Downloads/Pupils-Desks-Ratio-for-Primary-School-2014.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#Pupil teacher ration
+PTRPriGov <- read.csv("data/PTR-Goverment-Primary-Schools-2016.csv", 
+                      colClasses = c(NA, NA, "NULL", "NULL", NA, NA, NA, "NULL", "NULL","NULL","NULL","NULL"))
+PTRSecGov <- read.csv("data/PTR-in-Gvt-Secondary-Schools-2016.csv",
+                      colClasses = c(NA, NA, "NULL", "NULL", NA, NA, NA))
+PTRPriNon <- read.csv("data/PTR-NonGoverment-Primary-Schools-2016.csv",
+                      colClasses = c(NA, NA, "NULL", "NULL", NA, NA, NA, "NULL", "NULL","NULL","NULL","NULL"))
+PTRSecNon <- read.csv("data/PTR-in-Non-Gvt-Secondary-Schools-2016.csv", 
+                      colClasses = c(NA, NA, "NULL", "NULL", NA, NA, NA))
+
+#Enrollment
+SecEnrollImport <- read.csv("data/Enrolment-in-Secondary-Schools-by-Gender-and-Age-2016.csv")
+PrimEnrollImport <- read.csv("data/Primary-Enrolment-by-Gender-and-Age-2016.csv")
+
+#Standardized exam pass rates
+PSLE2013 <- read.csv("data/PSLE-2013-RANKen.csv")
+
+CSEE2013U40 <- read.csv("data/CSEE-2013-RANK-40-AND-MOREen.csv")
+CSEE2013O40 <- read.csv("data/CSEE2013-RANK-LESS-THAN-40en.csv")
+
+#Classrooms
+#PrimClassrooms <- read.csv("Education/Infrastructure/Classrooms/council-primary-pupil-Classroom-Ratio-2014.csv")
+#contains both primary enrollment disaggregated by ownership and classrooms disaggregated by ownership
+#can I find the same data for secondary so that I don't have to go through all the hoops for sec?
+
+#Pre-primary enrollement
+#PPE <- read.csv("Education/Pre-primary/Classes-or-Streams-of-Pre-Primary-Pupils-by-Region-2013.csv")
+
+#Census
+Census <- read_excel("data/Census_Long_ByDistrict.xls")
+
 
 #importing maps
 RegionMap <- readShapeSpatial("GIS_Maps/Regions.shp", proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
 DistrictMap <- readShapeSpatial("GIS_Maps/Districts.shp", proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-#I need a ward map
 
 #PopMap <- readGDAL("Population/WorldPop/TZA_popmap15adj_v2b.tif")
-PovertyMap <- readGDAL("Population/WorldPop_Poverty/tza10povmpi.tif")
-PovertyRaster <- raster(PovertyMap)
-#I need census data aggregated by ward, district, and region
-#Could use census data / sq mile for density
+#PovertyMap <- readGDAL("Population/WorldPop_Poverty/tza10povmpi.tif")
+#PovertyRaster <- raster(PovertyMap)
 
 
 
-#CLEANING AND JOINING
+#CLEANING AND JOINING#####################################################
 
+
+
+
+#SCHOOL, DISTRICT, REGIONAL MASTER DFS#####################################
 #By school
-
-#To add: Exam results, Ranks, Enrollment by age and gender
 
 primaryLocPerf2014$LEVEL <- "PRIMARY"
 secondaryLocPerf2014$LEVEL <- "SECONDARY"
 
-SchoolMaster <- rbind(primaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL", "OWNERSHIP", "LONGITUDE", "LATITUDE")], 
-                      secondaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL","OWNERSHIP", "LONGITUDE", "LATITUDE")])
-
-SchoolPlot <- SchoolMaster
-#for(i in seq_along(primaryEnrollment2016)){
-#  for(i in 1:2){
-#    print(grep(primaryEnrollment2016$REGION[1], SchoolMaster$REGION))}{
-#      
-#    if(grep(primaryEnrollment2016$WARD[i], SchoolMaster$WARD)){
-#      print(primaryEnrollment2016$WARD)
-#    }
-#  }
-#}
-#if district is same, if ward is same, if contains 4 same letters, print if more than one, else assign
-  #don't search already assigned indices
-
-#By ward 
+SchoolMaster <- rbind(primaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL", "OWNERSHIP", 
+                                            "LONGITUDE", "LATITUDE", "PASS_RATE", "RANK")], 
+                      secondaryLocPerf2014[,c("CODE", "NAME", "REGION", "DISTRICT", "WARD", "LEVEL","OWNERSHIP", 
+                                              "LONGITUDE", "LATITUDE", "PASS_RATE", "RANK")])
 
 
-WardMaster <- SchoolMaster %>% 
-                select(-CODE, -NAME, -LONGITUDE, -LATITUDE) %>%
-                group_by(REGION, DISTRICT, WARD, LEVEL, OWNERSHIP) %>%
-                mutate(COUNT = 1) %>%
-                summarize(COUNT = sum(COUNT))  
-                #add averaging for other stats, summarize_at or summarize_if are options
+#I would like to take the schoolMaster and fix all the district names BEFORE passing on to the shiny app
 
-#make a version that condenses to all ownership types
+#correct an error in the shp file naming
+levels(DistrictMap@data$District_N)[which(levels(DistrictMap@data$District_N)=="Butiam")] <- "Butiama"
+#make a list of the district names to work from
+DistrictNames <- factor(toupper(sort(DistrictMap@data$District_N)))
+RegionNames <- factor(toupper(sort(RegionMap@data$Region_Nam)))
+
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$REGION)=="KAGERA" & levels(SchoolMaster$DISTRICT)=="")] <- levels(DistrictNames)[118]
+
+
+#pretty sure I just did this for convience in comparison
+#levels(DistrictMaster$DISTRICT) <- sort(levels(DistrictMaster$DISTRICT))
+
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="ARUSHA(M)")] <- levels(DistrictNames)[2]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BABATI MJINI")] <- levels(DistrictNames)[4]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BABATI(V)")] <- levels(DistrictNames)[3]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BARIADI MJI")] <- levels(DistrictNames)[7]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BARIADI VIJIJINI")] <- levels(DistrictNames)[7]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BUKOBA MANISPAA")] <- levels(DistrictNames)[11]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BUKOBA RURAL")] <- levels(DistrictNames)[10]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BUKOBA(V)")] <- levels(DistrictNames)[10]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BUMBULI")] <- levels(DistrictNames)[76]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="BUSOKELO")] <- levels(DistrictNames)[141]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="DODOMA(M)")] <- levels(DistrictNames)[21]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="GEITA MJI")] <- levels(DistrictNames)[23]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="GEITA VIJIJINI")] <- levels(DistrictNames)[23]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="HANDENI TOWNSHIP AUTHORITY")] <- levels(DistrictNames)[27]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="ILALA(M)")] <- levels(DistrictNames)[30]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="ILALA(V)")] <- levels(DistrictNames)[30]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="IRINGA RURAL")] <- levels(DistrictNames)[34]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="IRINGA(M)")] <- levels(DistrictNames)[35]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="IRINGA(V)")] <- levels(DistrictNames)[34]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="ITILIMA-DC")] <- levels(DistrictNames)[36]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KAHAMA MJI")] <- levels(DistrictNames)[38]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIBAHA DC")] <- levels(DistrictNames)[49]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIBAHA TC")] <- levels(DistrictNames)[50]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIGOMA RURAL")] <- levels(DistrictNames)[52]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIGOMA UJIJI MUNICIPAL")] <- levels(DistrictNames)[53]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIGOMA(M)")] <- levels(DistrictNames)[53]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KIGOMA(V)")] <- levels(DistrictNames)[52]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KINONDONI(M)")] <- levels(DistrictNames)[59]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KINONDONI(V)")] <- levels(DistrictNames)[59]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KOROGWE MJI")] <- levels(DistrictNames)[66]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KOROGWE VIJIJINI")] <- levels(DistrictNames)[65]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="KUSINI UNGUJA")] <- levels(DistrictNames)[67]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="LINDI RURAL")] <- levels(DistrictNames)[71]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="LINDI(M)")] <- levels(DistrictNames)[72]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="LINDI(V)")] <- levels(DistrictNames)[71]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MANISPAA")] <- levels(DistrictNames)[151]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MASASI MJI")] <- levels(DistrictNames)[85]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MBEYA RURAL")] <- levels(DistrictNames)[88]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MBEYA(M)")] <- levels(DistrictNames)[89]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MBEYA(V)")] <- levels(DistrictNames)[88]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MJI MAKAMBAKO")] <- levels(DistrictNames)[81]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MOROGORO(M)")] <- levels(DistrictNames)[108]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MOROGORO(V)")] <- levels(DistrictNames)[107]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MOSHI MUNICIPAL")] <- levels(DistrictNames)[110]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MOSHI(M)")] <- levels(DistrictNames)[110]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MOSHI(V)")] <- levels(DistrictNames)[109]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MJI NJOMBE")] <- levels(DistrictNames)[130]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MPANDA MJI")] <- levels(DistrictNames)[112]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MPANDA VIJIJINI")] <- levels(DistrictNames)[111]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MSALALA")] <- levels(DistrictNames)[37]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MTWARA MANISPAA")] <- levels(DistrictNames)[115]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MTWARA RURAL")] <- levels(DistrictNames)[114]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MTWARA(V)")] <- levels(DistrictNames)[114]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MUSOMA MUNICIPAL")] <- levels(DistrictNames)[120]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MUSOMA(M)")] <- levels(DistrictNames)[120]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MUSOMA(V)")] <- levels(DistrictNames)[119]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="MWANZA JIJI")] <- levels(DistrictNames)[132]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="NJOMBE VIJIJINI")] <- levels(DistrictNames)[129]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SHINYANGA (M)")] <- levels(DistrictNames)[146]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SHINYANGA RURAL")] <- levels(DistrictNames)[145]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SHINYANGA(V)")] <- levels(DistrictNames)[145]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SINGIDA(V)")] <- levels(DistrictNames)[150]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SONGEA RURAL")] <- levels(DistrictNames)[152]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SONGEA(M)")] <- levels(DistrictNames)[153]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SONGEA(V)")] <- levels(DistrictNames)[152]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SUMBAWANGA (M)")] <- levels(DistrictNames)[155]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SUMBAWANGA RURAL")] <- levels(DistrictNames)[154]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="SUMBAWANGA(V)")] <- levels(DistrictNames)[154]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TABORA RURAL")] <- levels(DistrictNames)[156]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TABORA(M)")] <- levels(DistrictNames)[156]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TABORA(V)")] <- levels(DistrictNames)[156]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TANGA")] <- levels(DistrictNames)[158]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TANGA MJINI")] <- levels(DistrictNames)[158]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TANGA(V)")] <- levels(DistrictNames)[158]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TARIME MJI")] <- levels(DistrictNames)[159]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TEMEKE(M)")] <- levels(DistrictNames)[160]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="TEMEKE(V)")] <- levels(DistrictNames)[160]
+levels(SchoolMaster$DISTRICT)[which(levels(SchoolMaster$DISTRICT)=="USHETU")] <- levels(DistrictNames)[37]
+
+#there's an issue with this####
+levels(SchoolMaster$REGION)[which(levels(SchoolMaster$REGION)=="MARA ")] <- "MARA"
+#levels(SchoolMaster$REGION)[which(levels(SchoolMaster$REGION)=="PEMBA")] <- "PEMBA"
+
+
+SchoolMaster$DISTRICT <- as.factor(SchoolMaster$DISTRICT)
+SchoolMaster$REGION <- as.factor(SchoolMaster$REGION)
+
+#this isn't enough to get this out
+#levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$WARD)=="MUGANZA")] <- levels(DistrictNames)[47]
+
+#setdiff(levels(SchoolMaster$DISTRICT), DistrictNames)
+#setdiff(DistrictNames, levels(SchoolMaster$DISTRICT))
+
+#levels(SchoolMaster$DISTRICT)
+#levels(DistrictNames)
+
+#Remaining problems
+#Schools without assigned districts
+#Blanks 
+Test <- SchoolMaster %>%
+  filter(DISTRICT == "")  #146 schools with no district
+#"NSIMBO"      - this might actually be Mlele or something? I think it's in the wrong spot on the map
+Test2 <- SchoolMaster %>%
+  filter(DISTRICT == "NSIMBO") #these are all in Sikonge and all have the same lat/lon
+
+#districts without any schools
+#"KASULU TOWNSHIP AUTHORITY"  - these are wards that need to be assigned to this district
+  #Muganza
+  #Murubona
+  #Murusi
+  #Kumsenga
+#"MAFINGA TOWNSHIP AUTHORITY" – there are no schools shown here, which is another question
+#"TUNDUMA" – this is small and without schools
+
+#write.csv(SchoolMaster, file = "SchoolMaster.csv")
 
 
 
-#By district
+#NAME DISTRICTS CORRECTLY####
+
+DistrictRename <- function(dataframe) {
+  #need to feed it a df with col name DISTRICT, items in col capitalized, items in col as factors
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA RURAL")] <- levels(DistrictNames)[1]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA (DC)")] <- levels(DistrictNames)[1]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA DISTRICT COUNCIL")] <- levels(DistrictNames)[1]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA CC")] <- levels(DistrictNames)[2]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA CITY COUNCIL")] <- levels(DistrictNames)[2]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA(M)")] <- levels(DistrictNames)[2]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ARUSHA (M)")] <- levels(DistrictNames)[2]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI RURAL")] <- levels(DistrictNames)[3]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI DISTRICT COUNCIL")] <- levels(DistrictNames)[3]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI TOWN COUNCIL")] <- levels(DistrictNames)[4]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI TC")] <- levels(DistrictNames)[4]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI MJINI")] <- levels(DistrictNames)[4]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI (M)")] <- levels(DistrictNames)[4]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI(V)")] <- levels(DistrictNames)[3]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BABATI (V)")] <- levels(DistrictNames)[3]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BAGAMOYO DISTRICT COUNCIL")] <- levels(DistrictNames)[5]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BAHI DISTRICT COUNCIL")] <- levels(DistrictNames)[6]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI RURAL")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI URBAN")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI TC")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI MJI")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI (M)")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI VIJIJINI")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI DISTRICT COUNCIL")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BARIADI (V)")] <- levels(DistrictNames)[7]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BIHARAMULO DISTRICT COUNCIL")] <- levels(DistrictNames)[8]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUHINGWE DISTRICT COUNCIL")] <- levels(DistrictNames)[9]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOSA")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA RURAL")] <- levels(DistrictNames)[10]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA MANISPAA")] <- levels(DistrictNames)[11]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA(V)")] <- levels(DistrictNames)[10]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA DISTRICT COUNCIL")] <- levels(DistrictNames)[10]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA (V)")] <- levels(DistrictNames)[10]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA MC")] <- levels(DistrictNames)[11]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[11]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOBA (M)")] <- levels(DistrictNames)[11]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUKOMBE DISTRICT COUNCIL")] <- levels(DistrictNames)[12]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUMBULI")] <- levels(DistrictNames)[76]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUNDA TC")] <- levels(DistrictNames)[13]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUNDA DISTRICT COUNCIL")] <- levels(DistrictNames)[13]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUSEGA DISTRICT COUNCIL")] <- levels(DistrictNames)[14]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUSOKELO")] <- levels(DistrictNames)[141]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="BUTIAMA DISTRICT COUNCIL")] <- levels(DistrictNames)[15]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHALINZE")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHAKECHAKE")] <- levels(DistrictNames)[16]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHAKECHAKE DISTRICT ")] <- levels(DistrictNames)[16]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHAMWINO DISTRICT COUNCIL")] <- levels(DistrictNames)[17]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHATO DISTRICT COUNCIL")] <- levels(DistrictNames)[18]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHEMBA DISTRICT COUNCIL")] <- levels(DistrictNames)[19]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="CHUNYA DISTRICT COUNCIL")] <- levels(DistrictNames)[20]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="DODOMA(M)")] <- levels(DistrictNames)[21]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="DODOMA (M)")] <- levels(DistrictNames)[21]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="DODOMA MC")] <- levels(DistrictNames)[21]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="DODOMA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[21]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GAIRO DISTRICT COUNCIL")] <- levels(DistrictNames)[22]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA MJI")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA (M)")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA TC")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA RURAL")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA URBAN")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA VIJIJINI")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA (V)")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="GEITA DISTRICT COUNCIL")] <- levels(DistrictNames)[23]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HAI DISTRICT COUNCIL")] <- levels(DistrictNames)[24]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HANANG DISTRICT COUNCIL")] <- levels(DistrictNames)[25]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HANDENI DISTRICT COUNCIL")] <- levels(DistrictNames)[26]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HANDENI TOWNSHIP AUTHORITY")] <- levels(DistrictNames)[27]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HANDENI TC")] <- levels(DistrictNames)[27]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="HANDENI TOWN COUNCIL")] <- levels(DistrictNames)[27]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IGUNGA DISTRICT COUNCIL")] <- levels(DistrictNames)[28]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IFAKARA")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IKUNGI DISTRICT COUNCIL")] <- levels(DistrictNames)[29]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILALA(M)")] <- levels(DistrictNames)[30]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILALA MC")] <- levels(DistrictNames)[30]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILALA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[30]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILALA(V)")] <- levels(DistrictNames)[30]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILEJE DISTRICT COUNCIL")] <- levels(DistrictNames)[31]  
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILEMELA MC")] <- levels(DistrictNames)[32]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ILEMELA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[32]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRAMBA DISTRICT COUNCIL")] <- levels(DistrictNames)[33]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA RURAL")] <- levels(DistrictNames)[34]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA(M)")] <- levels(DistrictNames)[35]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA (M)")] <- levels(DistrictNames)[35]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA MC")] <- levels(DistrictNames)[35]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[35]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA(V)")] <- levels(DistrictNames)[34]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA (V)")] <- levels(DistrictNames)[34]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA RURAL")] <- levels(DistrictNames)[34]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="IRINGA DISTRICT COUNCIL")] <- levels(DistrictNames)[34]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ITIGI")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ITILIMA-DC")] <- levels(DistrictNames)[36]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ITILIMA DISTRICT COUNCIL")] <- levels(DistrictNames)[36]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA MJI")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA ")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA URBAN")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA TC")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA TOWN COUNCIL")] <- levels(DistrictNames)[38]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAHAMA DISTRICT COUNCIL")] <- levels(DistrictNames)[37]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KAKONKO DISTRICT COUNCIL")] <- levels(DistrictNames)[39]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KALAMBO DISTRICT COUNCIL")] <- levels(DistrictNames)[40]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KALIUA DISTRICT COUNCIL")] <- levels(DistrictNames)[41]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KARAGWE DISTRICT COUNCIL")] <- levels(DistrictNames)[42]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KARATU DISTRICT COUNCIL")] <- levels(DistrictNames)[43]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KASKAZINI A DISTRICT COUNCIL")] <- levels(DistrictNames)[44]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KASKAZINI B DISTRICT COUNCIL")] <- levels(DistrictNames)[45]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KASULU DISTRICT COUNCIL")] <- levels(DistrictNames)[46]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KASULU TC")] <- levels(DistrictNames)[47]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KASULU TOWN COUNCIL")] <- levels(DistrictNames)[47]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KATI DISTRICT COUNCIL")] <- levels(DistrictNames)[48]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA DC")] <- levels(DistrictNames)[49]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA DISTRICT COUNCIL")] <- levels(DistrictNames)[49]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA TC")] <- levels(DistrictNames)[50]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA TOWN COUNCIL")] <- levels(DistrictNames)[50]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA (M)")] <- levels(DistrictNames)[50]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA RURAL")] <- levels(DistrictNames)[49]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBAHA (V)")] <- levels(DistrictNames)[49]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIBONDO DISTRICT COUNCIL")] <- levels(DistrictNames)[51]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA RURAL")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA B DISTRICT COUNCIL")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA DISTRICT COUNCIL")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA UJIJI MUNICIPAL")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA UJIJI MUNICIPAL COUNCIL")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA/UJIJI MC")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA(M)")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA (M)")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA(V)")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA (V)")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA URBAN")] <- levels(DistrictNames)[53]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KIGOMA RURAL")] <- levels(DistrictNames)[52]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KILINDI DISTRICT COUNCIL")] <- levels(DistrictNames)[54]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KILOLO DISTRICT COUNCIL")] <- levels(DistrictNames)[55]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KILOMBERO DISTRICT COUNCIL")] <- levels(DistrictNames)[56]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KILWA DISTRICT COUNCIL")] <- levels(DistrictNames)[58]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KINONDONI(M)")] <- levels(DistrictNames)[59]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KINONDONI MC")] <- levels(DistrictNames)[59]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KINONDONI MUNICIPAL COUNCIL")] <- levels(DistrictNames)[59]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KINONDONI(V)")] <- levels(DistrictNames)[59]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KISARAWE DISTRICT COUNCIL")] <- levels(DistrictNames)[60]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KISHAPU DISTRICT COUNCIL")] <- levels(DistrictNames)[61]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KITETO DISTRICT COUNCIL")] <- levels(DistrictNames)[62]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KONDOA DISTRICT COUNCIL")] <- levels(DistrictNames)[63]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KONDOA TC")] <- levels(DistrictNames)[63]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KONGWA DISTRICT COUNCIL")] <- levels(DistrictNames)[64]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE TOWN COUNCIL")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE TC")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE MJI")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE (M)")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE (M) ")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE VIJIJINI")] <- levels(DistrictNames)[65]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE (V)")] <- levels(DistrictNames)[65]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE DISTRICT COUNCIL")] <- levels(DistrictNames)[65]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE URBAN")] <- levels(DistrictNames)[66]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KOROGWE RURAL")] <- levels(DistrictNames)[65]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KUSINI UNGUJA")] <- levels(DistrictNames)[67]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KUSINI DISTRICT COUNCIL")] <- levels(DistrictNames)[67]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KWIMBA DISTRICT COUNCIL")] <- levels(DistrictNames)[68]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KYELA DISTRICT COUNCIL")] <- levels(DistrictNames)[69]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="KYERWA DISTRICT COUNCIL")] <- levels(DistrictNames)[70]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI RURAL")] <- levels(DistrictNames)[71]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI DISTRICT COUNCIL")] <- levels(DistrictNames)[71]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI(M)")] <- levels(DistrictNames)[72]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI MUNICIPAL COUNCIL")] <- levels(DistrictNames)[72]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI (M)")] <- levels(DistrictNames)[72]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI MC")] <- levels(DistrictNames)[72]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI(V)")] <- levels(DistrictNames)[71]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LINDI (V)")] <- levels(DistrictNames)[71]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LIWALE DISTRICT COUNCIL")] <- levels(DistrictNames)[73]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LONGIDO DISTRICT COUNCIL")] <- levels(DistrictNames)[74]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LUDEWA DISTRICT COUNCIL")] <- levels(DistrictNames)[75]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="LUSHOTO DISTRICT COUNCIL")] <- levels(DistrictNames)[76]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAFIA DISTRICT COUNCIL")] <- levels(DistrictNames)[77]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MADABA")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAFINGA TC")] <- levels(DistrictNames)[78]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAFINGA TOWN COUNCIL")] <- levels(DistrictNames)[78]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAFINGA TOWNSHIP AUTHORITY")] <- levels(DistrictNames)[78]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAGHARIBI DISTRICT ")] <- levels(DistrictNames)[79]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAGU DISTRICT COUNCIL")] <- levels(DistrictNames)[80]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAKAMBAKO URBAN")] <- levels(DistrictNames)[81]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAKAMBAKO")] <- levels(DistrictNames)[81]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAKAMBAKO TC")] <- levels(DistrictNames)[81]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAKAMBAKO TOWN COUNCIL")] <- levels(DistrictNames)[81]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MJI MAKAMBAKO")] <- levels(DistrictNames)[81]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MAKETE DISTRICT COUNCIL")] <- levels(DistrictNames)[82]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MANYONI DISTRICT COUNCIL")] <- levels(DistrictNames)[83]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MALINYI")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MANISPAA")] <- levels(DistrictNames)[151]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA MANISPAA")] <- levels(DistrictNames)[115]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASASI MJI")] <- levels(DistrictNames)[85]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASASI TOWN COUNCIL")] <- levels(DistrictNames)[85]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASASI URBAN")] <- levels(DistrictNames)[85]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASASI TC")] <- levels(DistrictNames)[85]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASASI DISTRICT COUNCIL")] <- levels(DistrictNames)[84]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MASWA DISTRICT COUNCIL")] <- levels(DistrictNames)[86]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBARALI DISTRICT COUNCIL")] <- levels(DistrictNames)[87]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA RURAL")] <- levels(DistrictNames)[88]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA DISTRICT COUNCIL")] <- levels(DistrictNames)[88]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA(M)")] <- levels(DistrictNames)[89]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA (M)")] <- levels(DistrictNames)[89]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA CC")] <- levels(DistrictNames)[89]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA CITY COUNCIL")] <- levels(DistrictNames)[89]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA(V)")] <- levels(DistrictNames)[88]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBEYA (V)")] <- levels(DistrictNames)[88]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBINGA TC")] <- levels(DistrictNames)[90]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBINGA DISTRICT COUNCIL")] <- levels(DistrictNames)[90]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBOGWE DISTRICT COUNCIL")] <- levels(DistrictNames)[91]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBOZI DISTRICT COUNCIL")] <- levels(DistrictNames)[92]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBULU DISTRICT COUNCIL")] <- levels(DistrictNames)[93]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MBULU TC")] <- levels(DistrictNames)[93]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MEATU DISTRICT COUNCIL")] <- levels(DistrictNames)[94]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MERU DISTRICT COUNCIL")] <- levels(DistrictNames)[95]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MICHEWENI DISTRICT ")] <- levels(DistrictNames)[96]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MISENYI")] <- levels(DistrictNames)[97]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MISSENYI MUNICIPAL COUNCIL")] <- levels(DistrictNames)[97]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MISUNGWI DISTRICT COUNCIL")] <- levels(DistrictNames)[98]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MJINI DISTRICT ")] <- levels(DistrictNames)[99]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MKALAMA DISTRICT COUNCIL")] <- levels(DistrictNames)[100]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MKINGA DISTRICT COUNCIL")] <- levels(DistrictNames)[101]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MKOANI DISTRICT ")] <- levels(DistrictNames)[102]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MKURANGA DISTRICT COUNCIL")] <- levels(DistrictNames)[103]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MLELE DISTRICT COUNCIL")] <- levels(DistrictNames)[104]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOMBA DISTRICT COUNCIL")] <- levels(DistrictNames)[105]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MONDULI DISTRICT COUNCIL")] <- levels(DistrictNames)[106]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO(M)")] <- levels(DistrictNames)[108]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO (M)")] <- levels(DistrictNames)[108]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO MC")] <- levels(DistrictNames)[108]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO MUNICIPAL COUNCIL")] <- levels(DistrictNames)[108]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO RURAL")] <- levels(DistrictNames)[107]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO DISTRICT COUNCIL")] <- levels(DistrictNames)[107]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO(V)")] <- levels(DistrictNames)[107]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOROGORO (V)")] <- levels(DistrictNames)[107]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI MUNICIPAL")] <- levels(DistrictNames)[110]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI MUNICIPAL COUNCIL")] <- levels(DistrictNames)[110]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI RURAL")] <- levels(DistrictNames)[109]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI DISTRICT COUNCIL")] <- levels(DistrictNames)[109]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI(M)")] <- levels(DistrictNames)[110]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI (M)")] <- levels(DistrictNames)[110]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI MC")] <- levels(DistrictNames)[110]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI(V)")] <- levels(DistrictNames)[109]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MOSHI (V)")] <- levels(DistrictNames)[109]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MJI NJOMBE")] <- levels(DistrictNames)[130]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA MJI")] <- levels(DistrictNames)[112]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA (M)")] <- levels(DistrictNames)[112]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA MC")] <- levels(DistrictNames)[112]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA TOWN COUNCIL")] <- levels(DistrictNames)[112]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA VIJIJINI")] <- levels(DistrictNames)[111]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA (V)")] <- levels(DistrictNames)[111]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA DISTRICT COUNCIL")] <- levels(DistrictNames)[111]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPANDA RURAL")] <- levels(DistrictNames)[111]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPIMBWE")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MPWAPWA DISTRICT COUNCIL")] <- levels(DistrictNames)[113]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MSALALA")] <- levels(DistrictNames)[37]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA RURAL")] <- levels(DistrictNames)[114]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA(V)")] <- levels(DistrictNames)[114]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA (V)")] <- levels(DistrictNames)[114]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA MIKINDANI MC")] <- levels(DistrictNames)[115]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA (M)")] <- levels(DistrictNames)[115]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA DISTRICT COUNCIL")] <- levels(DistrictNames)[114]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MTWARA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[115]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUFINDI DISTRICT COUNCIL")] <- levels(DistrictNames)[116]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUHEZA DISTRICT COUNCIL")] <- levels(DistrictNames)[117]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MULEBA DISTRICT COUNCIL")] <- levels(DistrictNames)[118]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA MUNICIPAL")] <- levels(DistrictNames)[120]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA(M)")] <- levels(DistrictNames)[120]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA (M)")] <- levels(DistrictNames)[120]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA MC")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA(M)")] <- levels(DistrictNames)[120]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA RURAL")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA DISTRICT COUNCIL")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA (V)")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MUSOMA(V)")] <- levels(DistrictNames)[119]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MVOMERO DISTRICT COUNCIL")] <- levels(DistrictNames)[121]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MWANGA DISTRICT COUNCIL")] <- levels(DistrictNames)[122]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MWANZA JIJI")] <- levels(DistrictNames)[132]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="MWANZA CC")] <- levels(DistrictNames)[132]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NACHINGWEA DISTRICT COUNCIL")] <- levels(DistrictNames)[123]
+  #levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NANYAMBA")] <- levels(DistrictNames)[]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NAMTUMBO DISTRICT COUNCIL")] <- levels(DistrictNames)[124]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NANYUMBU DISTRICT COUNCIL")] <- levels(DistrictNames)[125]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NEWALA DISTRICT COUNCIL")] <- levels(DistrictNames)[126]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NEWALA TC")] <- levels(DistrictNames)[126]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NGARA DISTRICT COUNCIL")] <- levels(DistrictNames)[127]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NGORONGORO DISTRICT COUNCIL")] <- levels(DistrictNames)[128]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE DISTRICT COUNCIL")] <- levels(DistrictNames)[129]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE TOWN COUNCIL")] <- levels(DistrictNames)[130]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE VIJIJINI")] <- levels(DistrictNames)[129]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE (V)")] <- levels(DistrictNames)[129]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE RURAL")] <- levels(DistrictNames)[129]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE TC")] <- levels(DistrictNames)[130]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NJOMBE (M)")] <- levels(DistrictNames)[130]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NKASI DISTRICT COUNCIL")] <- levels(DistrictNames)[131]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NYAMAGANA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[132]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NYANG'HWALE DISTRICT COUNCIL")] <- levels(DistrictNames)[133]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NYASA DISTRICT COUNCIL")] <- levels(DistrictNames)[134]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NZEGA DISTRICT COUNCIL")] <- levels(DistrictNames)[135]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="NZEGA TC")] <- levels(DistrictNames)[135]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="PANGANI DISTRICT COUNCIL")] <- levels(DistrictNames)[136]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ROMBO DISTRICT COUNCIL")] <- levels(DistrictNames)[137]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="RORYA DISTRICT COUNCIL")] <- levels(DistrictNames)[138]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="RUANGWA DISTRICT COUNCIL")] <- levels(DistrictNames)[139]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="RUFIJI DISTRICT COUNCIL")] <- levels(DistrictNames)[140]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="RUNGWE DISTRICT COUNCIL")] <- levels(DistrictNames)[141]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SAME DISTRICT COUNCIL")] <- levels(DistrictNames)[142]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SENGEREMA DISTRICT COUNCIL")] <- levels(DistrictNames)[143]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SERENGETI DISTRICT COUNCIL")] <- levels(DistrictNames)[144]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA DISTRICT COUNCIL")] <- levels(DistrictNames)[145]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[146]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA (M)")] <- levels(DistrictNames)[146]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA MC")] <- levels(DistrictNames)[146]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA RURAL")] <- levels(DistrictNames)[145]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA(V)")] <- levels(DistrictNames)[145]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SHINYANGA (V)")] <- levels(DistrictNames)[145]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SIHA DISTRICT COUNCIL")] <- levels(DistrictNames)[147]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SIKONGE DISTRICT COUNCIL")] <- levels(DistrictNames)[148]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SIMANJIRO DISTRICT COUNCIL")] <- levels(DistrictNames)[149]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA DISTRICT COUNCIL")] <- levels(DistrictNames)[150]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[151]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA(V)")] <- levels(DistrictNames)[150]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA RURAL")] <- levels(DistrictNames)[150]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA (V)")] <- levels(DistrictNames)[150]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA MC")] <- levels(DistrictNames)[151]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SINGIDA (M)")] <- levels(DistrictNames)[151]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA RURAL")] <- levels(DistrictNames)[152]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA(M)")] <- levels(DistrictNames)[153]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA (M)")] <- levels(DistrictNames)[153]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA (M) ")] <- levels(DistrictNames)[153]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA MC")] <- levels(DistrictNames)[153]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[153]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA(V)")] <- levels(DistrictNames)[152]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA DISTRICT COUNCIL")] <- levels(DistrictNames)[152]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA (V)")] <- levels(DistrictNames)[152]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SONGEA (V) ")] <- levels(DistrictNames)[152]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA DISTRICT COUNCIL")] <- levels(DistrictNames)[154]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[155]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA (M)")] <- levels(DistrictNames)[155]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA RURAL")] <- levels(DistrictNames)[154]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA(V)")] <- levels(DistrictNames)[154]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA (V)")] <- levels(DistrictNames)[154]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="SUMBAWANGA MC")] <- levels(DistrictNames)[155]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA RURAL")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA(M)")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA (M)")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA MC")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA MUNICIPAL COUNCIL")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TABORA(V)")] <- levels(DistrictNames)[156]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANDAHIMBA DISTRICT COUNCIL")] <- levels(DistrictNames)[157]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA MJINI")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA (M)")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA CC")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA CITY COUNCIL")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TANGA(V)")] <- levels(DistrictNames)[158]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TARIME MJI")] <- levels(DistrictNames)[159]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TARIME URBAN")] <- levels(DistrictNames)[159]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TARIME TC")] <- levels(DistrictNames)[159]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TARIME RURAL")] <- levels(DistrictNames)[159]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TARIME DISTRICT COUNCIL")] <- levels(DistrictNames)[159]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TEMEKE(M)")] <- levels(DistrictNames)[160]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TEMEKE MC")] <- levels(DistrictNames)[160]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TEMEKE MUNICIPAL COUNCIL")] <- levels(DistrictNames)[160]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TEMEKE(V)")] <- levels(DistrictNames)[160]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TUNDUMA TC")] <- levels(DistrictNames)[161]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TUNDUMA TOWN COUNCIL")] <- levels(DistrictNames)[161]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="TUNDURU DISTRICT COUNCIL")] <- levels(DistrictNames)[162]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="UKEREWE DISTRICT COUNCIL")] <- levels(DistrictNames)[163]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="ULANGA DISTRICT COUNCIL")] <- levels(DistrictNames)[164]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="URAMBO DISTRICT COUNCIL")] <- levels(DistrictNames)[165]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="USHETU")] <- levels(DistrictNames)[37]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="UYUI DISTRICT COUNCIL")] <- levels(DistrictNames)[167]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="WANGING'OMBE DISTRICT COUNCIL")] <- levels(DistrictNames)[168]
+  levels(dataframe$DISTRICT)[which(levels(dataframe$DISTRICT)=="WETE DISTRICT ")] <- levels(DistrictNames)[169]
+
+  #levels(dataframe$REGION)[which(levels(dataframe$REGION)=="MARA ")] <- levels(RegionNames)[16]
+  
+  dataframe
+}
+
+#setdiff(levels(DistrictInfrastructure$DISTRICT), DistrictNames)
+# [1] "BUCHOSA"     "CHALINZE"    "IFAKARA TC"  "ITIGI"       "MADABA"      "MALINYI"     "MPIMBWE"     "NANYAMBA"   
+# [9] "NSIMBO"      "TABORA/UYUI"
+#setdiff(DistrictNames, levels(DistrictInfrastructure$DISTRICT))
+#[1] "CHAKE CHAKE"               "KASKAZINI A"               "KASKAZINI B"               "KASULU TOWNSHIP AUTHORITY"
+#[5] "KATI"                      "KUSINI"                    "MAGHARIBI"                 "MICHEWENI"                
+#[9] "MJINI"                     "MKOANI"                    "MUSOMA URBAN"              "UYUI"                     
+#[13] "WETE"
+
+#INFRASTRUCTURE DATA######################################################
+
+#District level Pupil/teacher ratio
+
+PTRNames <- c("REGION", "DISTRICT", "ENROLLMENT", "TEACHERS", "PTR")
+names(PTRPriGov) <- PTRNames
+names(PTRSecGov) <- PTRNames
+names(PTRPriNon) <- PTRNames
+names(PTRSecNon) <- PTRNames
+
+#standarize district names for everything
+
+PTRPriGov$DISTRICT <- as.factor(toupper(PTRPriGov$DISTRICT))
+PTRSecGov$DISTRICT <- as.factor(toupper(PTRSecGov$DISTRICT))
+PTRPriNon$DISTRICT <- as.factor(toupper(PTRPriNon$DISTRICT))
+PTRSecNon$DISTRICT <- as.factor(toupper(PTRSecNon$DISTRICT))
+
+PTRPriGov <- DistrictRename(PTRPriGov)
+PTRSecGov <- DistrictRename(PTRSecGov)
+PTRPriNon <- DistrictRename(PTRPriNon)
+PTRSecNon <- DistrictRename(PTRSecNon)
+
+#Do stats and combine dataframes
+
+PTRPriGov_Dis <- PTRPriGov %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(TOTAL_ENROLLMENT = sum(ENROLLMENT, na.rm = TRUE), 
+            TOTAL_TEACHERS = sum(TEACHERS, na.rm = TRUE),  
+            PTR = TOTAL_ENROLLMENT/TOTAL_TEACHERS, 
+            LEVEL = "PRIMARY", 
+            OWNERSHIP = "GOVERNMENT")
+
+PTRSecGov_Dis <- PTRSecGov %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(TOTAL_ENROLLMENT = sum(ENROLLMENT, na.rm = TRUE), 
+            TOTAL_TEACHERS = sum(TEACHERS, na.rm = TRUE), 
+            PTR = TOTAL_ENROLLMENT/TOTAL_TEACHERS, 
+            LEVEL = "SECONDARY", 
+            OWNERSHIP = "GOVERNMENT")
+
+PTRPriNon_Dis <- PTRPriNon %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(TOTAL_ENROLLMENT = sum(ENROLLMENT, na.rm = TRUE), 
+            TOTAL_TEACHERS = sum(TEACHERS, na.rm = TRUE), 
+            PTR = TOTAL_ENROLLMENT/TOTAL_TEACHERS, 
+            LEVEL = "PRIMARY", 
+            OWNERSHIP = "NON GOVERNMENT")
+
+PTRSecNon_Dis <- PTRSecNon %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(TOTAL_ENROLLMENT = sum(ENROLLMENT, na.rm = TRUE), 
+            TOTAL_TEACHERS = sum(TEACHERS, na.rm = TRUE), 
+            PTR = TOTAL_ENROLLMENT/TOTAL_TEACHERS, 
+            LEVEL = "SECONDARY", 
+            OWNERSHIP = "NON GOVERNMENT")
+
+PTR <- rbind(PTRSecNon_Dis, PTRPriNon_Dis, PTRSecGov_Dis, PTRPriGov_Dis)
+PTR$DISTRICT <- as.factor(PTR$DISTRICT)
+PTR$LEVEL <- as.factor(PTR$LEVEL)
+PTR$OWNERSHIP <- as.factor(toupper(PTR$OWNERSHIP))
+#PTR <- DistrictRename(PTR) #this is already done above
+#check for discrepancies
+#setdiff(levels(PTR$DISTRICT), DistrictNames)
+#setdiff(DistrictNames, levels(PTR$DISTRICT))
+PTR$key <- paste(PTR$REGION, PTR$DISTRICT, PTR$LEVEL, PTR$OWNERSHIP, sep = "_")
+
+#Enrollment
+
+#standarize district names for everything
+
+PrimEnrollImport$DISTRICT <- as.factor(toupper(PrimEnrollImport$COUNCIL))
+SecEnrollImport$DISTRICT <- as.factor(toupper(SecEnrollImport$COUNCIL))
+
+PrimEnrollImport <- DistrictRename(PrimEnrollImport)
+SecEnrollImport <- DistrictRename(SecEnrollImport)
+
+#Make the combined dfs
+
+PrimEnroll <- PrimEnrollImport %>%
+  dplyr::select(-WARD, -SCHOOL.NAME) %>%
+  group_by(REGION, DISTRICT, SCHOOL.OWNERSHIP, GENDER) %>%
+  mutate(ENROLLMENT = (X..6.years + X6.years + X7.years + X8.years + X9.years +
+                         X10.years + X11.years + X12.years + X13.years + X.13.years)) %>% #why can't I just add together these fucking cols?
+  #summarise(TOTAL_ENROLLMENT = sum(BOYS_ENROLLMENT + GIRLS_ENROLLMENT), LEVEL = "PRIMARY")
+  summarise(ENROLLMENT = sum(ENROLLMENT, na.rm = TRUE)) %>%
+  spread(GENDER, ENROLLMENT) %>%
+  summarise(BOYS_ENROLLMENT = Boys, 
+            GIRLS_ENROLLMENT = Girls, 
+            TOTAL_ENROLLMENT = Boys + Girls, 
+            LEVEL = "PRIMARY")
+
+SecEnroll <- SecEnrollImport %>%
+  dplyr::select(-WARD, -SCHOOL.NAME) %>%
+  group_by(REGION, DISTRICT, SCHOOL.OWNERSHIP) %>%
+  mutate(BOYS_ENROLLMENT = X..12.years.Boys + X12.years.Boys + X13.years.Boys + X14.years.Boys +
+           X15.years.Boys + X16.years.Boys + X17.years.Boys + X18.years.Boys + X19.years.Boys + X..19.years.Boys,
+          GIRLS_ENROLLMENT = X..12.years.Girls + X12.years.Girls + X13.years.Girls + X14.years.Girls +
+           X15.years.Girls + X16.years.Girls + X17.years.Girls + X18.years.Girls + X19.years.Girls + X..19.years.Girls) %>%
+  summarise(BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE), 
+            GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE),
+            TOTAL_ENROLLMENT = BOYS_ENROLLMENT + GIRLS_ENROLLMENT, 
+            LEVEL = "SECONDARY")
+
+Enrollment <- rbind(SecEnroll, PrimEnroll)
+names(Enrollment) <- c("REGION", "DISTRICT", "OWNERSHIP", 
+                       "BOYS_ENROLLMENT", "GIRLS_ENROLLMENT", "TOTAL_ENROLLMENT", "LEVEL")
+Enrollment$DISTRICT <- as.factor(Enrollment$DISTRICT)
+Enrollment$LEVEL <- as.factor(Enrollment$LEVEL)
+Enrollment$OWNERSHIP <- toupper(Enrollment$OWNERSHIP)
+Enrollment$OWNERSHIP[grepl(pattern = "NON-GOVERNMENT", x = Enrollment$OWNERSHIP)] <- "NON GOVERNMENT"
+Enrollment$OWNERSHIP <- as.factor(Enrollment$OWNERSHIP)
+#Enrollment <- DistrictRename(Enrollment) #this is taken care of earlier
+#check for discrepancies
+#setdiff(levels(Enrollment$DISTRICT), DistrictNames)
+#setdiff(DistrictNames, levels(Enrollment$DISTRICT))
+Enrollment$key <- paste(Enrollment$REGION, Enrollment$DISTRICT, Enrollment$LEVEL, Enrollment$OWNERSHIP, sep = "_")
+
+#Exam pass rates
+#Certifcate of Secondary Education Examinatation
+#ACSEE Advanced CSEE
+
+CSEE2013O40$DISTRICT <- as.factor(toupper(CSEE2013O40$DISTRICT))
+CSEE2013U40$DISTRICT <- as.factor(toupper(CSEE2013U40$DISTRICT.NAME))
+PSLE2013$DISTRICT <- as.factor(toupper(PSLE2013$DISTRICT))
+
+CSEE2013O40 <- DistrictRename(CSEE2013O40)
+CSEE2013U40 <- DistrictRename(CSEE2013U40)
+PSLE2013 <- DistrictRename(PSLE2013)
+
+CSEE2013.1 <- CSEE2013O40 %>%
+  dplyr::select(DISTRICT, REGION, PERCENTAGE.PASS, CLEAN, PASSED) 
+
+CSEE2013.2 <- CSEE2013U40 %>%
+  dplyr::select(DISTRICT, REGION = REGION.NAME, PERCENTAGE.PASS, CLEAN, PASSED)
+
+CSEEComb <- rbind(CSEE2013.1, CSEE2013.2)
+
+CSEE <- CSEEComb %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(EXAM_SAT = sum(CLEAN, na.rm = TRUE),
+            EXAM_PASSED = sum(PASSED, na.rm = TRUE),
+            EXAM_PASS_RATE = EXAM_PASSED / EXAM_SAT * 100,
+            LEVEL = "SECONDARY")
+
+PSLE <- PSLE2013 %>%
+  group_by(REGION, DISTRICT) %>%
+  summarise(EXAM_SAT = sum(CLEAN, na.rm = TRUE),
+            EXAM_PASSED = sum(PASSED, na.rm = TRUE),
+            EXAM_PASS_RATE = EXAM_PASSED/EXAM_SAT * 100,
+            LEVEL = "PRIMARY")
+
+ExamResults <- rbind(PSLE, CSEE)
+ExamResults$DISTRICT <- as.factor(ExamResults$DISTRICT)
+#ExamResults <- DistrictRename(ExamResults) #already done elsewhere
+#check for any discrepancies
+#setdiff(levels(ExamResults$DISTRICT), DistrictNames)
+#setdiff(DistrictNames, levels(ExamResults$DISTRICT))
+ExamResults$shortkey <- paste(ExamResults$REGION, ExamResults$DISTRICT, ExamResults$LEVEL, sep = "_")
+
+
+#Population
+
+Census$DISTRICT <- as.factor(toupper(Census$District))
+Census <- DistrictRename(Census)
+
+DisPop <- Census %>%
+  filter(Year == "2012") %>%
+  group_by(DISTRICT, REGION = Region) %>%
+  summarise(POPULATION = sum(Total, na.rm = TRUE))
+DisPop$DISTRICT <- as.factor(DisPop$DISTRICT)
+DisPop$REGION <- as.factor(toupper(DisPop$REGION))
+#DisPop <- DistrictRename(DisPop)
+#check for any discrepancies
+#setdiff(levels(DisPop$DISTRICT), DistrictNames)
+#setdiff(DistrictNames, levels(DisPop$DISTRICT))
+DisPop$placekey <- paste(DisPop$REGION, DisPop$DISTRICT, sep = "_")
+
+
+#MERGE ALL DISTRICT LEVEL DATA INTO INFRASTRUCTURE######
+#On key, merge PTR, Enrollment
+DistrictInfrastructureFullKey <- full_join(PTR, Enrollment, by = "key")
+DistrictInfrastructureFullKey$shortkey <- paste(DistrictInfrastructureFullKey$REGION.y,
+                                                DistrictInfrastructureFullKey$DISTRICT.y, 
+                                                DistrictInfrastructureFullKey$LEVEL.y, sep = "_")
+#assess whether it's better to use .x or .y here, also in DistrictInfrastructure below####
+
+#On shortkey, merge ExamResults (left join with the largekey)
+#Some part of it isn't ownership-dependent 
+DistrictInfrastructureShortKey <- full_join(DistrictInfrastructureFullKey, ExamResults, by = "shortkey")
+DistrictInfrastructureShortKey$placekey <- paste(DistrictInfrastructureShortKey$REGION.x, 
+                                                 DistrictInfrastructureShortKey$DISTRICT.x, sep = "_")
+
+#On just district, merge population
+DistrictInfrastructureAll <- full_join(DistrictInfrastructureShortKey, DisPop, key = "placekey")
+DistrictInfrastructure <- DistrictInfrastructureAll %>%
+  ungroup() %>%
+  group_by(REGION.x, DISTRICT.x, LEVEL.x, OWNERSHIP.x) %>%
+  select(REGION = REGION.x, DISTRICT = DISTRICT.x, LEVEL = LEVEL.x, OWNERSHIP = OWNERSHIP.x,
+         PTR, TOTAL_TEACHERS, TOTAL_ENROLLMENT = TOTAL_ENROLLMENT.y, BOYS_ENROLLMENT, GIRLS_ENROLLMENT,
+         EXAM_SAT, EXAM_PASSED, EXAM_PASS_RATE, POPULATION)
+
+
+DistrictInfrastructure$key <- paste(DistrictInfrastructure$REGION, DistrictInfrastructure$DISTRICT, DistrictInfrastructure$LEVEL, DistrictInfrastructure$OWNERSHIP, sep = "_")
+#table(duplicated(DistrictInfrastructure$key))
+#i'm confused as to why there are duplicates here...####
+
 #To add: Make sure the enrollment figures match, dropout rates, desks, books
 
-DistrictMaster <- WardMaster %>% 
-                    ungroup() %>%
-                    select(-WARD) %>%
-                    group_by(REGION, DISTRICT, LEVEL, OWNERSHIP) %>%
-                    summarize(COUNT = sum(COUNT)) 
 
-#DistrictMaster needs to have the same names as the DistrictMap
-DistrictNames <- factor(toupper(sort(DistrictMap@data$District_N)))
-levels(DistrictMaster$DISTRICT) <- sort(levels(DistrictMaster$DISTRICT))
-
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ARUSHA(M)")] <- levels(DistrictNames)[2]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BABATI MJINI")] <- levels(DistrictNames)[4]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BABATI(V)")] <- levels(DistrictNames)[3]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BARIADI MJI")] <- levels(DistrictNames)[7]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BARIADI VIJIJINI")] <- levels(DistrictNames)[7]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA MANISPAA")] <- levels(DistrictNames)[11]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA RURAL")] <- levels(DistrictNames)[10]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="BUKOBA(V)")] <- levels(DistrictNames)[10]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="DODOMA(M)")] <- levels(DistrictNames)[21]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="GEITA MJI")] <- levels(DistrictNames)[23]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="GEITA VIJIJINI")] <- levels(DistrictNames)[23]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ILALA(M)")] <- levels(DistrictNames)[30]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="ILALA(V)")] <- levels(DistrictNames)[30]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA RURAL")] <- levels(DistrictNames)[34]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA(M)")] <- levels(DistrictNames)[35]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="IRINGA(V)")] <- levels(DistrictNames)[34]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA RURAL")] <- levels(DistrictNames)[52]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA UJIJI MUNICIPAL")] <- levels(DistrictNames)[53]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA(M)")] <- levels(DistrictNames)[53]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KIGOMA(V)")] <- levels(DistrictNames)[52]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KINONDONI(M)")] <- levels(DistrictNames)[59]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KINONDONI(V)")] <- levels(DistrictNames)[59]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KOROGWE MJI")] <- levels(DistrictNames)[66]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="KOROGWE VIJIJINI")] <- levels(DistrictNames)[65]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI RURAL")] <- levels(DistrictNames)[71]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI(M)")] <- levels(DistrictNames)[72]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="LINDI(V)")] <- levels(DistrictNames)[71]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MASASI MJI")] <- levels(DistrictNames)[85]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA RURAL")] <- levels(DistrictNames)[88]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA(M)")] <- levels(DistrictNames)[89]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MBEYA(V)")] <- levels(DistrictNames)[88]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MJI MAKAMBAKO")] <- levels(DistrictNames)[81]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOROGORO(M)")] <- levels(DistrictNames)[108]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOROGORO(V)")] <- levels(DistrictNames)[107]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI MUNICIPAL")] <- levels(DistrictNames)[110]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI(M)")] <- levels(DistrictNames)[110]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MOSHI(V)")] <- levels(DistrictNames)[109]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MJI NJOMBE")] <- levels(DistrictNames)[130]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MPANDA MJI")] <- levels(DistrictNames)[112]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MPANDA VIJIJINI")] <- levels(DistrictNames)[111]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA MANISPAA")] <- levels(DistrictNames)[115]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA RURAL")] <- levels(DistrictNames)[114]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MTWARA(V)")] <- levels(DistrictNames)[114]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA MUNICIPAL")] <- levels(DistrictNames)[120]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA(M)")] <- levels(DistrictNames)[120]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="MUSOMA(V)")] <- levels(DistrictNames)[119]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="NJOMBE VIJIJINI")] <- levels(DistrictNames)[129]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA (M)")] <- levels(DistrictNames)[146]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA RURAL")] <- levels(DistrictNames)[145]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SHINYANGA(V)")] <- levels(DistrictNames)[145]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA RURAL")] <- levels(DistrictNames)[152]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA(M)")] <- levels(DistrictNames)[153]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SONGEA(V)")] <- levels(DistrictNames)[152]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA (M)")] <- levels(DistrictNames)[155]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA RURAL")] <- levels(DistrictNames)[154]
-levels(DistrictMaster$DISTRICT)[which(levels(DistrictMaster$DISTRICT)=="SUMBAWANGA(V)")] <- levels(DistrictNames)[154]
-
-
-setdiff(levels(DistrictMaster$DISTRICT), DistrictNames)
-levels(DistrictMaster$DISTRICT)
-levels(DistrictNames)
-
-#make a version that condenses to all ownership types
+#AGGREGATE ALL DISTRICT DATA##############
 
 
 
-#By region
-
-RegionMaster <- DistrictMaster %>% 
-                    ungroup() %>%
-                    select(-DISTRICT) %>%
-                    group_by(REGION, LEVEL, OWNERSHIP) %>%
-                    summarize(COUNT = sum(COUNT))
-
-#make a version that condenses to all ownership types
-
-
-
-
-
-#MAPPING
-#Underlay population, underlay poverty
-#univariate plotting
-#how can i do multivariate plotting?
-
-Popup <- paste("<b> School: ", SchoolMaster$NAME, "</b>", "<br>",
-               "Level: ", SchoolMaster$LEVEL, "<br>",
-               "Ward: ", SchoolMaster$WARD, "<br>",
-               "Ownership: ", SchoolMaster$OWNERSHIP)
-
-SchoolMaster$LevelOwnership <- with(SchoolMaster, interaction(LEVEL, OWNERSHIP, sep = " ", drop = TRUE))
-SchoolMaster$LevelOwnership <- factor(SchoolMaster$LevelOwnership, levels = c("PRIMARY GOVERNMENT", "PRIMARY NON GOVERNMENT", "SECONDARY GOVERNMENT", 
-                                       "SECONDARY NON GOVERNMENT", "PRIMARY", "SECONDARY"))
-
-SchoolPal <- colorFactor(palette = c("royalblue","royalblue4", "green", "green4", "grey", "grey"), 
-                         domain = SchoolMaster$LevelOwnership)
-#should pick better colors, should make secondary / primary without specified ownership the correct color
-PovPal <- colorNumeric(c("#000000", "#666666", "#FFFFFF"), 
-                       values(PovertyRaster),
-                       na.color = "transparent")
-#PopPal <- colorNumeric(c("#000000", "#666666", "#FFFFFF"), 
-#                       values(PoPulationRaster),
-#                       na.color = "transparent")
+DistrictAgg <- SchoolMaster %>% 
+  dplyr::select(-CODE, -NAME, -LONGITUDE, -LATITUDE, -WARD) %>%
+  group_by(REGION, DISTRICT, LEVEL, OWNERSHIP) %>%
+  #group_by(REGION, DISTRICT) %>%
+  #group_by(DISTRICT) %>%
+  filter(DISTRICT != "") %>%  #should be able to take this out once I get all the schools placed in districts
+  mutate(COUNT = 1) %>%
+  summarize(COUNT = sum(COUNT, na.rm = TRUE), 
+            AVG_RANK = mean(RANK, na.rm = TRUE), 
+            AVG_PASS = mean(PASS_RATE, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(DISTRICT_RANK = rank(AVG_RANK, ties.method = "random")) #%>%
+#  mutate(fac1 = Fac1Function(DISTRICT_RANK), fac2 = Fac2Function(AVG_PASS), 
+#         fac = factor(paste(fac1, fac2, sep = ""), levels = facorder)) #%>%
+  #could filter for NAs here...
 
 
-SchoolMap <- leaflet(SchoolMaster) %>%    
-                addTiles() %>%
-                addRasterImage(PovertyRaster, 
-                               colors=PovPal, 
-                               opacity = 0.5, 
-                               maxBytes = 123123123) %>%
-                addLegend(pal = PovPal, 
-                          values = values(PovertyRaster),
-                          #labels = values(PovertyRaster*100), figure out a way to percentagise this
-                          title = "% In Poverty") %>%
-                addCircleMarkers(lat = ~LATITUDE, 
-                                 lng = ~LONGITUDE, 
-                                 radius = 0.1, 
-                                 color = ~SchoolPal(LevelOwnership), 
-                                 fillColor = ~SchoolPal(LevelOwnership),
-                                 opacity = 0.8,
-                           #add a size thing for enrollment
-                                 popup = ~Popup) %>%
+DistrictAgg$key <- paste(DistrictAgg$REGION, DistrictAgg$DISTRICT, DistrictAgg$LEVEL, DistrictAgg$OWNERSHIP, sep = "_")
+
+
+DistrictNamesdf <- data.frame(DISTRICT = DistrictNames) #169 districts, so this is what I'm expecting
+
+#Join everything up to make the DistrictMaster df with only district names approved by the map
+DistrictMasterTemp <- right_join(DistrictAgg, DistrictNamesdf, by = "DISTRICT")
+DistrictMaster <- left_join(DistrictMasterTemp, DistrictInfrastructure, by = "key") %>%
+  ungroup() %>%
+  #filter out unclaimed schools####
+  filter(OWNERSHIP.x != "") %>%
+  group_by(REGION.x, DISTRICT.x, LEVEL.x, OWNERSHIP.x) %>%
+  select(REGION = REGION.x, DISTRICT = DISTRICT.x, LEVEL = LEVEL.x, OWNERSHIP = OWNERSHIP.x,
+         COUNT, AVG_RANK, AVG_PASS, 
+         PTR, TOTAL_TEACHERS, TOTAL_ENROLLMENT, BOYS_ENROLLMENT, GIRLS_ENROLLMENT,
+         EXAM_SAT, EXAM_PASSED, EXAM_PASS_RATE, POPULATION)
+
+
+#write.csv(DistrictMaster, file = "DistrictMaster.csv")
+
+
+
+#REGIONALLY AGGREGATED DATA####
+
+#Make RegionInfrastructure
+#The only data I have to add to this is pre-primary at the moment. Consider adding this is there is more
+
+#Make RegionAgg
+
+RegionAgg1 <- SchoolMaster %>% 
+  dplyr::select(-CODE, -NAME, -LONGITUDE, -LATITUDE, -WARD) %>%
+  group_by(REGION, LEVEL, OWNERSHIP) %>%
+  mutate(COUNT = 1) %>%
+  summarize(COUNT = sum(COUNT, na.rm = TRUE), 
+            AVG_RANK = mean(RANK, na.rm = TRUE), 
+            AVG_PASS = mean(PASS_RATE, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(REGION_RANK = rank(AVG_RANK, ties.method = "random"))
+
+RegionAgg1$key <- paste(RegionAgg1$REGION, RegionAgg1$LEVEL, RegionAgg1$OWNERSHIP, sep = "_")
+
+
+RegionAgg2 <- DistrictInfrastructure %>% 
+  ungroup() %>%
+  dplyr::select(-DISTRICT, -PTR, -key) %>%
+  group_by(REGION, LEVEL, OWNERSHIP) %>%
+  summarize(TOTAL_TEACHERS = sum(TOTAL_TEACHERS, na.rm = TRUE), 
+            TOTAL_ENROLLMENT = sum(TOTAL_ENROLLMENT, na.rm = TRUE), 
+            BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE), 
+            GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE),
+            EXAM_SAT = sum(EXAM_SAT, na.rm = TRUE), 
+            EXAM_PASSED = sum(EXAM_PASSED, na.rm = TRUE),  
+            POPULATION = sum(POPULATION, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(PTR = TOTAL_ENROLLMENT / TOTAL_TEACHERS, 
+         EXAM_PASS_RATE = EXAM_SAT/EXAM_PASSED)
+
+RegionAgg2$key <- paste(RegionAgg2$REGION, RegionAgg2$LEVEL, RegionAgg2$OWNERSHIP, sep = "_")
+
+RegionAgg <- left_join(RegionAgg1, RegionAgg2, by = "key")
+
+#Make RegionMaster
+
+RegionMaster <- RegionAgg %>%
+  ungroup() %>%
+  #filter out unclaimed schools####
+  filter(OWNERSHIP.x != "") %>%
+  group_by(REGION.x, LEVEL.x, OWNERSHIP.x) %>%
+  select(REGION = REGION.x, LEVEL = LEVEL.x, OWNERSHIP = OWNERSHIP.x,
+         COUNT, AVG_RANK, REGION_RANK, AVG_PASS, 
+         PTR, TOTAL_TEACHERS, TOTAL_ENROLLMENT, BOYS_ENROLLMENT, GIRLS_ENROLLMENT,
+         EXAM_SAT, EXAM_PASSED, EXAM_PASS_RATE, POPULATION)
+
+
+
+#PREP FOR MAPPING#####################################################
+#This needs to be executed before the Shiny App
+
+#District
+
+#DistrictMaster needs to be made wide for mapping purposes
+DistrictMaster2 <- DistrictMaster %>%
+  group_by(DISTRICT) %>%
+  summarize(COUNT = sum(COUNT, na.rm = TRUE), 
+            AVG_RANK = mean(AVG_RANK, na.rm = TRUE), 
+            AVG_PASS = mean(AVG_PASS, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(DISTRICT_RANK = rank(AVG_RANK, ties.method = "random"))
+#note that these rankings and pass rates are meaningless
+
+DistrictMap@data$District_N <- toupper(as.character(DistrictMap@data$District_N))
+DistrictMap <- DistrictMap[order(DistrictMap@data$District_N),]
+#DistrictMaster$DISTRICT.x <- as.character(DistrictMaster$DISTRICT.x)
+
+#identical(DistrictMap@data$District_N, DistrictMaster$DISTRICT.x)
+#setdiff(DistrictMap@data$District_N, DistrictMaster$DISTRICT.x)
+#setdiff(DistrictMaster$DISTRICT.x, DistrictMap@data$District_N)
+
+#This is just a test that the shiny app version will hopefully work
+DisDataMap <- append_data(DistrictMap, DistrictMaster2, key.shp = "District_N", key.data = "DISTRICT")
+
+
+#Region
+
+#Make a wide version of RegionMaster for mapping
+RegionMaster2 <- RegionMaster %>%
+  group_by(REGION) %>%
+  summarise(TOTAL_COUNT = sum(COUNT, na.rm = TRUE), 
+            AVG_RANK = stats::weighted.mean(AVG_RANK, COUNT),
+            AVG_PASS = stats::weighted.mean(AVG_PASS, COUNT)) %>%
+  ungroup() %>%
+  mutate(REGION_RANK = rank(AVG_RANK, ties.method = "random"))
+
+RegionMap@data$Region_Nam <- toupper(as.character(RegionMap@data$Region_Nam))
+RegionMap <- RegionMap[order(RegionMap@data$Region_Nam),]
+
+#identical(RegionMap@data$Region_Nam, RegionMaster2$REGION.x)
+#setdiff(RegionMap@data$Region_Nam, RegionMaster2$REGION.x)
+#setdiff(RegionMaster2$REGION.x, RegionMap@data$Region_Nam)
+#differences here are in how regions are drawn in Zanzibar
+#ISSUE: NEED TO ADDRESS ZANZIBAR#######
+
+RegionDataMap <- append_data(RegionMap, RegionMaster2, key.shp = "Region_Nam", key.data = "REGION")
+
+#Mainland region (without Zanzibar)
+#remove Zanzibar, reorder
+MainlandMap <- RegionMap[RegionMap@data$Region_Cod != 51,]
+MainlandMap <- MainlandMap[MainlandMap@data$Region_Cod != 52,]
+MainlandMap <- MainlandMap[MainlandMap@data$Region_Cod != 53,]
+MainlandMap <- MainlandMap[MainlandMap@data$Region_Cod != 54,]
+MainlandMap <- MainlandMap[MainlandMap@data$Region_Cod != 55,]
+
+MainlandMap@data$Region_Nam <- as.character(MainlandMap@data$Region_Nam) 
+MainlandMap <- MainlandMap[order(MainlandMap@data$Region_Nam),]
+MainlandMap@data$Region_Nam[2] <- "Dar es Salaam"
+
+  
+#FUNCTIONS AND VARS FOR SHINY#### 
+
+Fac1Function <- function(inputStat) {
+  outputStat <- vector()
+  for(a in 1:length(inputStat)){
+    if(is.na(inputStat[a])){
+      outputStat[a] <- "NA"
+    } else if(inputStat[a] < stats::quantile(inputStat, probs = 0.33, na.rm = T)){
+      outputStat[a] <- "A"
+    } else if(inputStat[a] < stats::quantile(inputStat, probs = 0.66, na.rm = T)){
+      outputStat[a] <- "B"
+    } else if(inputStat[a] <= stats::quantile(inputStat, probs = 1.00, na.rm = T)){
+      outputStat[a] <- "C"
+    } else {
+      outputStat[a] <- "NA"
+    }
+  }
+  return(as.factor(outputStat))
+}
+
+Fac2Function <- function(inputStat) {
+  outputStat <- vector()
+  for(a in 1:length(inputStat)){
+    if(is.na(inputStat[a])){
+      outputStat[a] <- "NA"
+    } else if(inputStat[a] < stats::quantile(inputStat, probs = 0.33, na.rm = T)){
+      outputStat[a] <- "1"
+    } else if(inputStat[a] < stats::quantile(inputStat, probs = 0.66, na.rm = T)){
+      outputStat[a] <- "2"
+    } else if(inputStat[a] <= stats::quantile(inputStat, probs = 1.00, na.rm = T)){
+      outputStat[a] <- "3"
+    } else {
+      outputStat[a] <- "NA"
+    }
+  }
+  return(as.factor(outputStat))
+}
+
+facorder <- c("A3", "B3", "C3", "A2", "B2", "C2", "A1", "B1", "C1", "NA")
+
+
+facorder <- c("A3", "B3", "C3", "A2", "B2", "C2", "A1", "B1", "C1", "NA")
+faclist <- factor(c("A3", "B3", "C3", "A2", "B2", "C2", "A1", "B1", "C1", "NA"), levels = facorder)
+
+
+palette <- c("#be64ac", "#8c62aa", "#3b4994",
+             "#dfb0d6", "#a5add3", "#5698b9",
+             "#e8e8e8", "#ace4e4", "#5ac8c8",
+             "#e8e8e8")  
+
+
+
+
+
+  
+  
+#SHINY APP#####################################################
+  ui <- fluidPage(
+    
+    titlePanel("Education in Tanzania"),
+    
+    sidebarLayout(
+      sidebarPanel(
+        
+        #Select School Level
+        checkboxGroupInput("LevelSelect",
+                           label = "School Level",
+                           choices = list("Primary" = 1, 
+                                          "Secondary" = 2 
+                                          #"Unspecified" = 3
+                                          ),
+                           selected = list(1, 2)),
+        
+        #Select School Ownership
+        checkboxGroupInput("OwnershipSelect",
+                           label = "School Ownership",
+                           choices = list("Government" = 1, 
+                                          "Private" = 2 #, 
+                                          #"Unspecified" = 3
+                                          ),
+                           selected = list(1, 2)),
+        
+        #Select aggregation level of data
+        selectInput("AggregationSelect", 
+                    label = "Aggregation",
+                    choices = list("School" = 1, 
+                                   "District" = 2, 
+                                   "Region" = 3),
+                    selected = 3),
+        
+        #Add something for picking out just DREAMS districts
+        
+
+        #Select stats to display
+        conditionalPanel(condition = "input.AggregationSelect == 1",
+                        selectInput("StatSelect", 
+                                   label = "Variable",
+                                    choices = list("School Rank" = "RANK",
+                                                    "Pass Rate" = "PASS_RATE"),
+                                    selected = 1)
+        ),
+        
+        conditionalPanel(condition = "input.AggregationSelect == 2",
+                         selectInput("DisStatSelect", 
+                                     label = "Variable",
+                                     choices = list("District Rank" = "DISTRICT_RANK",
+                                                    "Pass Rate" = "AVG_PASS",
+                                                    "Count" = "COUNT",
+                                                    "Enrollment" = "TOTAL_ENROLLMENT",
+                                                    #"Enrollment" = "STUDENTS",
+                                                    "Male Enrollment" = "BOYS_ENROLLMENT",
+                                                    "Female Enrollment" = "GIRLS_ENROLLMENT",
+                                                    "Pupil/Teacher Ratio"  = "PTR",
+                                                    "Teachers" = "TOTAL_TEACHERS",
+                                                    #"Exam Pass Rate (PSLE/CSEE)" = "EXAM_PASS_RATE",
+                                                    "Exams Taken (PSLE/CSEE)" = "EXAM_SAT",
+                                                    "Exams Passed (PSLE/CSEE)" = "EXAM_PASSED",
+                                                    "Population" = "POPULATION"
+                                                    ),
+                                     selected = 1)
+        ),
+        
+        conditionalPanel(condition = "input.AggregationSelect == 3",
+                         selectInput("RegStatSelect", 
+                                     label = "Variable",
+                                     choices = list("Region Rank" = "REGION_RANK",
+                                                    "Pass Rate" = "AVG_PASS",
+                                                    "Count" = "TOTAL_COUNT",
+                                                    "Enrollment" = "TOTAL_ENROLLMENT",
+                                                    #"Enrollment" = "STUDENTS",
+                                                    "Male Enrollment" = "BOYS_ENROLLMENT",
+                                                    "Female Enrollment" = "GIRLS_ENROLLMENT",
+                                                    "Pupil/Teacher Ratio"  = "PTR",
+                                                    "Teachers" = "TOTAL_TEACHERS",
+                                                    #"Exam Pass Rate (PSLE/CSEE)" = "EXAM_PASS_RATE",
+                                                    "Exams Taken (PSLE/CSEE)" = "EXAM_SAT",
+                                                    "Exams Passed (PSLE/CSEE)" = "EXAM_PASSED",
+                                                    "Population" = "POPULATION"
+                                                    ),
+                                     selected = 1)
+        ),
+        
+        #Select second stats to display
+        
+        conditionalPanel(condition = "input.AggregationSelect == 2",
+                         selectInput("DisSecondSelect", 
+                                     label = "Second Variable",
+                                     choices = list("None" = "NONE",
+                                                    "District Rank" = "DISTRICT_RANK",
+                                                    "Pass Rate" = "AVG_PASS",
+                                                    "Count" = "COUNT",
+                                                    "Enrollment" = "TOTAL_ENROLLMENT",
+                                                    #"Enrollment" = "STUDENTS",
+                                                    "Male Enrollment" = "BOYS_ENROLLMENT",
+                                                    "Female Enrollment" = "GIRLS_ENROLLMENT",
+                                                    "Teachers" = "TOTAL_TEACHERS",
+                                                    "Pupil/Teacher Ratio"  = "PTR",
+                                                    #"Exam Pass Rate (PSLE/CSEE)" = "EXAM_PASS_RATE",
+                                                    "Exams Taken (PSLE/CSEE)" = "EXAM_SAT",
+                                                    "Exams Passed (PSLE/CSEE)" = "EXAM_PASSED",
+                                                    "Population" = "POPULATION"
+                                                     ),
+
+                                     selected = 1)
+        ),
+
+        conditionalPanel(condition = "input.AggregationSelect == 3",
+                         selectInput("RegSecondSelect", 
+                                     label = "Second Variable",
+                                     choices = list("None" = "NONE",
+                                                    "Region Rank" = "REGION_RANK",
+                                                    "Pass Rate" = "AVG_PASS",
+                                                    "Count" = "TOTAL_COUNT",
+                                                    "Enrollment" = "TOTAL_ENROLLMENT",
+                                                    #"Enrollment" = "STUDENTS",
+                                                    "Male Enrollment" = "BOYS_ENROLLMENT",
+                                                    "Female Enrollment" = "GIRLS_ENROLLMENT",
+                                                    "Pupil/Teacher Ratio"  = "PTR",
+                                                    "Teachers" = "TOTAL_TEACHERS",
+                                                    #"Exam Pass Rate (PSLE/CSEE)" = "EXAM_PASS_RATE",
+                                                    "Exams Taken (PSLE/CSEE)" = "EXAM_SAT",
+                                                    "Exams Passed (PSLE/CSEE)" = "EXAM_PASSED",
+                                                    "Population" = "POPULATION"
+                                                    ),
+                                     selected = 1)
+        ),
+      
+
+#        radioButtons("PopPov",
+#                     label = "Additional Layers",
+#                     choices = list("None" = 1,
+#                                    "Population" = 2,
+#                                    "Poverty" = 3),
+#                     selected = 1),
+        
+        p("Displayed data are sourced from the Tanzanian Ministry of Health through the Government Open Data Portal at",
+          a("http://www.opendata.go.tz/"),
+          ".",
+          br(),
+          br(),
+          br(),
+          br(),
+          br(),
+          br(),
+          br(),
+          br())
+      ),
+      
+      mainPanel(
+        leafletOutput("TZEdMap"), 
+        #plotOutput("BoxOut", height = "100px"),
+        plotOutput("TZEdPlot", height = "200px"),
+        #tableOutput("OutputTempTable"),
+        DT::dataTableOutput("OutputTable"),
+        p(strong("Definitions:"),
+          "PSLE: Primary School Leaving Exam",
+          "CSEE: Certifcate of Secondary Education Examinatation")
+      )
+    )
+  )
+  
+  
+  server <- function(input, output) {
+    
+    SelectedData <- reactive({
+      #Select the correct school level
+      n <- 1
+      LevelExclude <- vector()
+      if(1 %notin% input$LevelSelect){
+        LevelExclude[n] <- c("PRIMARY")
+        n <- n + 1
+      }
+      
+      if(2 %notin% input$LevelSelect){
+        LevelExclude[n] <- c("SECONDARY")
+        n <- n + 1
+      }
+      
+      #Select the correct school ownership
+      i <- 1
+      OwnershipExclude <- vector()
+      if(1 %notin% input$OwnershipSelect){
+        OwnershipExclude[i] <- c("GOVERNMENT")
+        i <- i + 1
+      }
+      
+      if(2 %notin% input$OwnershipSelect){
+        OwnershipExclude[i] <- c("NON GOVERNMENT")
+        i <- i + 1
+      }
+      
+#      if(3 %notin% input$OwnershipSelect){
+#        OwnershipExclude[i] <- c("")
+#        i <- i + 1
+#      }
+      
+      #filter based on the appropriate aggregation and statistic
+      if(1 %in% input$AggregationSelect){ #SchoolMaster
+        
+        if("RANK" %in% input$StatSelect) {  #Which is the statistic selected?
+            StatSel <- "RANK"} else if ("PASS_RATE" %in% input$StatSelect) {
+            StatSel <- "PASS_RATE"}
+        
+        SchoolMaster %>%  #filter the SchoolMaster df according to selected level, ownership, and stat
+          filter(LEVEL %notin% LevelExclude) %>%
+          filter(OWNERSHIP %notin% OwnershipExclude) %>%
+          dplyr::select(VAR = contains(StatSel), NAME, LEVEL, OWNERSHIP, REGION, DISTRICT, WARD, LATITUDE, LONGITUDE)
+
+      } else if(2 %in% input$AggregationSelect){  #DistrictMaster
+#        print("You picked District")
+        if("COUNT" %in% input$DisStatSelect) {  #Which is the statistic selected?
+          StatSel <- "COUNT"} else if ("AVG_PASS" %in% input$DisStatSelect) {
+          StatSel <- "AVG_PASS"} else if ("DISTRICT_RANK" %in% input$DisStatSelect) {
+          StatSel <- "DISTRICT_RANK"}  else if ("PTR" %in% input$DisStatSelect) {
+          StatSel <- "PTR"} else if ("BOYS_ENROLLMENT" %in% input$DisStatSelect) {
+          StatSel <- "BOYS_ENROLLMENT"} else if ("GIRLS_ENROLLMENT" %in% input$DisStatSelect) {
+          StatSel <- "GIRLS_ENROLLMENT"} else if ("EXAM_SAT" %in% input$DisStatSelect) {
+          StatSel <- "EXAM_SAT"} else if ("EXAM_PASSED" %in% input$DisStatSelect) {
+          StatSel <- "EXAM_PASSED"} else if ("EXAM_PASS_RATE" %in% input$DisStatSelect) {
+          StatSel <- "EXAM_PASS_RATE"} else if ("TOTAL_TEACHERS" %in% input$DisStatSelect) {
+          StatSel <- "TOTAL_TEACHERS"} else if ("POPULATION" %in% input$DisStatSelect) {
+          StatSel <- "POPULATION"} else if ("TOTAL_ENROLLMENT" %in% input$DisStatSelect) {
+          StatSel <- "TOTAL_ENROLLMENT"} #else if ("STUDENTS "%in% input$DisStatSelect) {
+          #StatSel <- "STUDENTS"}
+          #add in any remaining stats from the menu here
+        
+        if("NONE" %in% input$DisSecondSelect) {
+          DistrictMaster %>%
+            filter(LEVEL %notin% LevelExclude) %>%
+            filter(OWNERSHIP %notin% OwnershipExclude) %>%
+            group_by(REGION, DISTRICT) %>%
+            summarize(COUNT = sum(COUNT, na.rm = TRUE), 
+                      AVG_RANK = mean(AVG_RANK, na.rm = TRUE), 
+                      AVG_PASS = mean(AVG_PASS, na.rm = TRUE), 
+                      #PTR = mean(PTR), 
+                      TOTAL_ENROLLMENT = sum(TOTAL_ENROLLMENT, na.rm = TRUE), 
+                      BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE),
+                      GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE), 
+                      EXAM_SAT = sum(EXAM_SAT, na.rm = TRUE),
+                      EXAM_PASSED = sum(EXAM_PASSED, na.rm = TRUE), 
+                      EXAM_PASS_RATE = sum(EXAM_PASS_RATE, na.rm = TRUE),
+                      TOTAL_TEACHERS = sum(TOTAL_TEACHERS, na.rm = TRUE), 
+                      POPULATION = mean(POPULATION), na.rm = TRUE) %>%
+            ungroup() %>%
+            mutate(DISTRICT_RANK = rank(AVG_RANK, ties.method = "random"),
+                   #STUDENTS = BOYS_ENROLLMENT + GIRLS_ENROLLMENT,
+                   PTR = TOTAL_ENROLLMENT / TOTAL_TEACHERS
+                   ) %>%
+            dplyr::select(VAR = contains(StatSel), REGION = REGION, DISTRICT = DISTRICT)
+          } else {
+            if("AVG_PASS" %in% input$DisSecondSelect) {
+              Stat2Sel <- "AVG_PASS"} else if ("DISTRICT_RANK" %in% input$DisSecondSelect) {
+              Stat2Sel <- "DISTRICT_RANK"}  else if ("PTR" %in% input$DisSecondSelect) {
+              Stat2Sel <- "PTR"}  else if("COUNT" %in% input$DisSecondSelect) {  
+              Stat2Sel <- "COUNT"} else if ("BOYS_ENROLLMENT" %in% input$DisSecondSelect) {
+              Stat2Sel <- "BOYS_ENROLLMENT"} else if ("GIRLS_ENROLLMENT" %in% input$DisSecondSelect) {
+              Stat2Sel <- "GIRLS_ENROLLMENT"} else if ("EXAM_SAT" %in% input$DisSecondSelect) {
+              Stat2Sel <- "EXAM_SAT"} else if ("EXAM_PASSED" %in% input$DisSecondSelect) {
+              Stat2Sel <- "EXAM_PASSED"} else if ("EXAM_PASS_RATE" %in% input$DisSecondSelect) {
+              Stat2Sel <- "EXAM_PASS_RATE"} else if ("TOTAL_TEACHERS" %in% input$DisSecondSelect) {
+              Stat2Sel <- "TOTAL_TEACHERS"} else if ("POPULATION" %in% input$DisSecondSelect) {
+              Stat2Sel <- "POPULATION"} else if ("TOTAL_ENROLLMENT"%in% input$DisSecondSelect) {
+              Stat2Sel <- "TOTAL_ENROLLMENT"} #else if ("STUDENTS "%in% input$DisSecondSelect) {
+              #Stat2Sel <- "STUDENTS"} 
+              #add in any remaining stats from the menu here
+   
+    #there may be problems here with NAs in the factor level#####         
+            DistrictMaster %>%
+              filter(LEVEL %notin% LevelExclude) %>%
+              filter(OWNERSHIP %notin% OwnershipExclude) %>%
+              group_by(REGION, DISTRICT) %>%
+              summarize(COUNT = sum(COUNT, na.rm = TRUE), 
+                        AVG_RANK = mean(AVG_RANK, na.rm = TRUE), 
+                        AVG_PASS = mean(AVG_PASS, na.rm = TRUE), 
+                        PTR = mean(PTR, na.rm = TRUE), 
+                        TOTAL_ENROLLMENT = sum(TOTAL_ENROLLMENT, na.rm = TRUE), 
+                        BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE),
+                        GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE), 
+                        EXAM_SAT = sum(EXAM_SAT, na.rm = TRUE),
+                        EXAM_PASSED = sum(EXAM_PASSED, na.rm = TRUE), 
+                        EXAM_PASS_RATE = sum(EXAM_PASS_RATE, na.rm = TRUE),
+                        TOTAL_TEACHERS = sum(TOTAL_TEACHERS, na.rm = TRUE), 
+                        POPULATION = mean(POPULATION, na.rm = TRUE)) %>%
+              ungroup() %>%
+              mutate(DISTRICT_RANK = rank(AVG_RANK, ties.method = "random"),
+                     #STUDENTS = BOYS_ENROLLMENT + GIRLS_ENROLLMENT,
+                     PTR = TOTAL_ENROLLMENT / TOTAL_TEACHERS
+                     ) %>%
+              dplyr::select(VAR = contains(StatSel), VAR2 = contains(Stat2Sel), REGION = REGION, DISTRICT = DISTRICT) %>%
+              mutate(fac1 = Fac1Function(VAR), fac2 = Fac2Function(VAR2), 
+                     COLOR_CODE = factor(paste(fac1, fac2, sep = ""), levels = facorder)) %>%
+              dplyr::select(VAR, VAR2, REGION, DISTRICT, COLOR_CODE)
+          } 
+      } else {  #RegionMaster
+#        print("You picked Region")
+        if("TOTAL_COUNT" %in% input$RegStatSelect) {  #Which is the statistic selected?
+          StatSel <- "TOTAL_COUNT"} else if ("AVG_PASS" %in% input$RegStatSelect) {
+          StatSel <- "AVG_PASS"} else if ("REGION_RANK" %in% input$RegStatSelect) {
+          StatSel <- "REGION_RANK"}  else if ("PTR" %in% input$RegStatSelect) {
+          StatSel <- "PTR"}  else if ("BOYS_ENROLLMENT" %in% input$RegStatSelect) {
+          StatSel <- "BOYS_ENROLLMENT"} else if ("GIRLS_ENROLLMENT" %in% input$RegStatSelect) {
+          StatSel <- "GIRLS_ENROLLMENT"} else if ("EXAM_SAT" %in% input$RegStatSelect) {
+          StatSel <- "EXAM_SAT"} else if ("EXAM_PASSED" %in% input$RegStatSelect) {
+          StatSel <- "EXAM_PASSED"} else if ("EXAM_PASS_RATE" %in% input$RegStatSelect) {
+          StatSel <- "EXAM_PASS_RATE"} else if ("TOTAL_TEACHERS" %in% input$RegStatSelect) {
+          StatSel <- "TOTAL_TEACHERS"} else if ("POPULATION" %in% input$RegStatSelect) {
+          StatSel <- "POPULATION"} else if ("TOTAL_ENROLLMENT" %in% input$RegStatSelect) {
+          StatSel <- "TOTAL_ENROLLMENT"} #else if ("STUDENTS" %in% input$RegStatSelect) {
+          #StatSel <- "STUDENTS"}
+      #going to need to fix things here####
+        if("NONE" %in% input$RegSecondSelect) {
+          RegionMaster %>%
+            filter(LEVEL %notin% LevelExclude) %>%
+            filter(OWNERSHIP %notin% OwnershipExclude) %>%
+            group_by(REGION) %>%
+            summarise(TOTAL_COUNT = sum(COUNT, na.rm = TRUE), 
+                      AVG_RANK = stats::weighted.mean(AVG_RANK, COUNT, na.rm = TRUE), #weighted mean for avg rank
+                      AVG_PASS = stats::weighted.mean(AVG_PASS, COUNT, na.rm = TRUE), #weighted mean for avg pass
+                      #PTR = sum(TOTAL_ENROLLMENT, na.rm = TRUE) / sum(TOTAL_TEACHERS, na.rm = TRUE),
+                      TOTAL_ENROLLMENT = sum(TOTAL_ENROLLMENT, na.rm = TRUE), 
+                      BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE),
+                      GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE), 
+                      EXAM_SAT = sum(EXAM_SAT, na.rm = TRUE),
+                      EXAM_PASSED = sum(EXAM_PASSED, na.rm = TRUE), 
+                      EXAM_PASS_RATE = sum(EXAM_PASS_RATE, na.rm = TRUE),
+                      TOTAL_TEACHERS = sum(TOTAL_TEACHERS, na.rm = TRUE), 
+                      POPULATION = mean(POPULATION, na.rm = TRUE)) %>%
+            ungroup() %>%
+            mutate(REGION_RANK = rank(AVG_RANK, ties.method = "random"),
+                   #STUDENTS = sum(BOYS_ENROLLMENT + GIRLS_ENROLLMENT, na.rm = TRUE),
+                   PTR = TOTAL_ENROLLMENT / TOTAL_TEACHERS
+                  ) %>%
+            dplyr::select(VAR = contains(StatSel), REGION = REGION)
+        } else {
+          if("TOTAL_COUNT" %in% input$RegSecondSelect) {  #Which is the statistic selected?
+            Stat2Sel <- "TOTAL_COUNT"} else if ("AVG_PASS" %in% input$RegSecondSelect) {
+            Stat2Sel <- "AVG_PASS"} else if ("REGION_RANK" %in% input$RegSecondSelect) {
+            Stat2Sel <- "REGION_RANK"}  else if ("PTR" %in% input$RegSecondSelect) {
+            Stat2Sel <- "PTR"} else if ("BOYS_ENROLLMENT" %in% input$RegSecondSelect) {
+            Stat2Sel <- "BOYS_ENROLLMENT"} else if ("GIRLS_ENROLLMENT" %in% input$RegSecondSelect) {
+            Stat2Sel <- "GIRLS_ENROLLMENT"} else if ("EXAM_SAT" %in% input$RegSecondSelect) {
+            Stat2Sel <- "EXAM_SAT"} else if ("EXAM_PASSED" %in% input$RegSecondSelect) {
+            Stat2Sel <- "EXAM_PASSED"} else if ("EXAM_PASS_RATE" %in% input$RegSecondSelect) {
+            Stat2Sel <- "EXAM_PASS_RATE"} else if ("TOTAL_TEACHERS" %in% input$RegSecondSelect) {
+            Stat2Sel <- "TOTAL_TEACHERS"} else if ("POPULATION" %in% input$RegSecondSelect) {
+            Stat2Sel <- "POPULATION"} else if ("TOTAL_ENROLLMENT" %in% input$RegSecondSelect) {
+            Stat2Sel <- "TOTAL_ENROLLMENT"} #else if ("STUDENTS" %in% input$RegSecondSelect) {
+            #Stat2Sel <- "STUDENTS"} 
+
+          RegionMaster %>%
+            filter(LEVEL %notin% LevelExclude) %>%
+            filter(OWNERSHIP %notin% OwnershipExclude) %>%
+            group_by(REGION) %>%
+            summarise(TOTAL_COUNT = sum(COUNT, na.rm = TRUE), 
+                      AVG_RANK = stats::weighted.mean(AVG_RANK, COUNT, na.rm = TRUE), #weighted mean for avg rank
+                      AVG_PASS = stats::weighted.mean(AVG_PASS, COUNT, na.rm = TRUE), #weighted mean for avg pass
+                      PTR = sum(TOTAL_ENROLLMENT, na.rm = TRUE) / sum(TOTAL_TEACHERS, na.rm = TRUE),
+                      TOTAL_ENROLLMENT = sum(TOTAL_ENROLLMENT, na.rm = TRUE), 
+                      BOYS_ENROLLMENT = sum(BOYS_ENROLLMENT, na.rm = TRUE),
+                      GIRLS_ENROLLMENT = sum(GIRLS_ENROLLMENT, na.rm = TRUE), 
+                      EXAM_SAT = sum(EXAM_SAT, na.rm = TRUE),
+                      EXAM_PASSED = sum(EXAM_PASSED, na.rm = TRUE), 
+                      EXAM_PASS_RATE = sum(EXAM_PASS_RATE, na.rm = TRUE),
+                      TOTAL_TEACHERS = sum(TOTAL_TEACHERS, na.rm = TRUE), 
+                      POPULATION = mean(POPULATION, na.rm = TRUE)) %>%
+            ungroup() %>%
+            mutate(REGION_RANK = rank(AVG_RANK, ties.method = "random"),
+                   #STUDENTS = sum(BOYS_ENROLLMENT + GIRLS_ENROLLMENT, na.rm = TRUE),
+                   PTR = TOTAL_ENROLLMENT / TOTAL_TEACHERS
+                    ) %>%
+            dplyr::select(VAR = contains(StatSel), VAR2 = contains(Stat2Sel), REGION = REGION) %>%
+            mutate(fac1 = Fac1Function(VAR), fac2 = Fac2Function(VAR2), 
+                   COLOR_CODE = factor(paste(fac1, fac2, sep = ""), levels = facorder)) %>%
+            dplyr::select(VAR, VAR2, REGION, COLOR_CODE)
+        }
+      }
+    })
+    
+    CombinedMap <- reactive({
+      if(2 %in% input$AggregationSelect){
+        append_data(DistrictMap, SelectedData(), key.shp = "District_N", key.data = "DISTRICT")
+      } else if (3 %in% input$AggregationSelect) {
+        append_data(RegionMap, SelectedData(), key.shp = "Region_Nam", key.data = "REGION")
+      }
+    })
+    
+    
+#TABLE####
+    output$OutputTable <- {DT::renderDataTable({
+      DT::datatable(SelectedData(),
+                    options = list(pagelength = 25,
+                                   searching = TRUE,
+                                   paging = TRUE,
+                                   lengthChange = FALSE),
+                    rownames = FALSE)# %>%
+                   # formatRound(3, digits = 0)
+      })
+    }
+    
+#    output$OutputTempTable <- {renderTable({head(SelectedData(),30) })}
+    
+    RankData <- reactive({
+      temp <- cbind(Rank = rank(CombinedMap()@data$VAR))
+    })
+    
+
+#PALETTES AND POPUPS#####
+    
+    LeafletPalette <- reactive({
+      colorNumeric(palette = rev(brewer.pal(5, "RdYlBu")), 
+                   domain = SelectedData()$VAR,
+                   na.color = "#808080")
+    })
+    
+    
+    BVPalette <- reactive({
+      colorFactor(palette = c("#be64ac", "#8c62aa", "#3b4994",
+                              "#dfb0d6", "#a5add3", "#5698b9",
+                              "#e8e8e8", "#ace4e4", "#5ac8c8",
+                               "#e8e8e8"),
+                  domain = faclist)
+    })
+    
+    
+    SchoolPopUp <- reactive({
+      paste("<b> School: ", SelectedData()$NAME, "</b>", "<br>",
+            "Level: ", SelectedData()$LEVEL, "<br>",
+            "Ownership: ", SelectedData()$OWNERSHIP, "<br>",
+            "Selected Variable: ", SelectedData()$VAR, "<br>",
+            "Region: ", SelectedData()$REGION, "<br>",
+            "District: ", SelectedData()$DISTRICT, "<br>",
+            "Ward: ", SelectedData()$WARD, "<br>")
+    })
+    
+
+#add rank to popup#####
+    DistrictPopUp <- reactive({
+      paste("<b> District: ", CombinedMap()@data$District_N, "</b>", "<br>",
+            "Region: ", CombinedMap()@data$REGION, "<br>",
+            "Selected Variable: ", CombinedMap()@data$VAR, "<br>"#,
+            #"Rank: ", RankData()$Rank, "<br>",
+            #"Rank 2:", rank(CombinedMap()@data$VAR)
+            )
+    })    
+
+    
+    RegionPopUp <- reactive({
+        paste("<b> Region: ", CombinedMap()@data$Region_Nam, "</b>", "<br>",
+#              "Rank: ", RankData()$Rank, "<br>",
+              "Selected Variable: ", CombinedMap()@data$VAR)
+    })
+    
+    DisBVPopUp <- reactive({
+        paste("<b> District: ", CombinedMap()@data$District_N, "</b>", "<br>",
+             "Region: ", CombinedMap()@data$REGION, "<br>",
+             "First Variable: ", CombinedMap()@data$VAR, "<br>",
+             "Second Variable: ", CombinedMap()@data$VAR2, "<br>",
+             "Color: ", CombinedMap()@data$COLOR_CODE)
+    })
+    
+    RegBVPopUp <- reactive({
+      paste("<b> Region: ", CombinedMap()@data$Region_Nam, "</b>", "<br>",
+#            "Rank: ", RankData()$Rank, "<br>",
+            "First Variable: ", CombinedMap()@data$VAR, "<br>",
+            "Second Variable: ", CombinedMap()@data$VAR2, "<br>",
+            "Color: ", CombinedMap()@data$COLOR_CODE)
+    })
+    
+
+#BASE MAP######
+    output$TZEdMap <- renderLeaflet({
+      leaflet(SelectedData()) %>%    
+        addProviderTiles("OpenStreetMap.Mapnik") %>%
+        setView(lng = 34.8888, lat = -6.3690, zoom = 5) 
+    })
+
+        
+#add if checkbox poverty == T
+    #this is the beginnings of the code
+    #addRasterImage(PovertyRaster, 
+    #               colors=PovPal, 
+    #               opacity = 0.5, 
+    #               maxBytes = 123123123) %>%
+    #addLegend(pal = PovPal, 
+    #          values = values(PovertyRaster),
+    #          labFormat = labelFormat(suffix = "%", transform = function(x) 100*x),
+    #          title = "% In Poverty")
+#add if checkbox population == T
+    
+#DATA MAP######
+    observe({    
+        if (1 %in% input$AggregationSelect){
+              leafletProxy("TZEdMap", data = SelectedData()) %>%   
+                clearShapes() %>%
+                addCircleMarkers(lat = ~SelectedData()$LATITUDE, 
+                                  lng = ~SelectedData()$LONGITUDE, 
+                                  radius = 0.1, 
+                                  opacity = 0.8,
+                                  #add a size thing for enrollment
+                                  popup = ~SchoolPopUp(),
+                                  color = ~LeafletPalette()(SelectedData()$VAR), 
+                                  fillColor = ~LeafletPalette()(SelectedData()$VAR)
+                                ) %>%
                 addLegend("bottomleft", #this appears if i take out the providertiles
-                          title = "School Type",
-                          pal = SchoolPal,
-                          values = ~LevelOwnership,
-                          opacity = 1,
-                          na.label = "NOT SPECIFIED") %>%
-                setView(lng = 34.8888, 
-                        lat = -6.3690, 
-                        zoom = 5) 
+                        title = "Schools",
+                        pal = LeafletPalette(),
+                        values = range(SelectedData()$VAR, na.rm = TRUE),
+                        opacity = 1,
+                        na.label = "NOT SPECIFIED")
+        } else if (2 %in% input$AggregationSelect) {
+            if("NONE" %in% input$DisSecondSelect) {
+                leafletProxy("TZEdMap", data = CombinedMap()) %>%   
+                  clearShapes() %>%
+                  addPolygons(stroke = T,
+                          weight = 1,
+                          fillOpacity = 0.6,   #this is here so that the popup remains viable
+                          popup = ~DistrictPopUp(),
+                          color = ~LeafletPalette()(CombinedMap()@data$VAR)  
+                        ) %>% 
+                  addLegend("bottomleft",
+                            title = "Legend",
+                            pal = LeafletPalette(),
+                            values = range(SelectedData()$VAR, na.rm = TRUE),
+                            opacity = 1,
+                            na.label = "NA")     
+            } else {
+                leafletProxy("TZEdMap", data = CombinedMap()) %>%   
+                  clearShapes() %>%
+                  addPolygons(stroke = T,
+                              weight = 1,
+                              fillOpacity = 0.6,   #this is here so that the popup remains viable
+                              popup = ~DisBVPopUp(),
+                              color = ~BVPalette()(CombinedMap()@data$COLOR_CODE)  
+                  ) #%>% 
+                  #addLegend("bottomleft",
+                  #          title = "Legend",
+                  #          pal = BVPalette(),
+                  #          values = faclist,
+                  #          opacity = 1,
+                  #          na.label = "NA") 
+            }
+        } else if (3 %in% input$AggregationSelect) {
+          if("NONE" %in% input$RegSecondSelect) {
+            leafletProxy("TZEdMap", data = CombinedMap()) %>%   
+              clearShapes() %>%
+              addPolygons(stroke = T,
+                          weight = 1,
+                          fillOpacity = 0.6,   #this is here so that the popup remains viable
+                          popup = ~RegionPopUp(),
+                          color = ~LeafletPalette()(CombinedMap()@data$VAR) 
+                ) %>%
+              addLegend("bottomleft",
+                        title = "Legend",
+                        pal = LeafletPalette(),
+                        values = range(SelectedData()$VAR, na.rm = TRUE),
+                        opacity = 1)    
+          } else {
+            leafletProxy("TZEdMap", data = CombinedMap()) %>%   
+              clearShapes() %>%
+              addPolygons(stroke = T,
+                          weight = 1,
+                          fillOpacity = 0.6,   #this is here so that the popup remains viable
+                          popup = ~RegBVPopUp(),
+                          color = ~BVPalette()(CombinedMap()@data$COLOR_CODE)  
+              ) #%>% 
+              #addLegend("bottomleft",
+              #          title = "Legend",
+              #          pal = BVPalette(),
+              #          values = faclist,
+              #          opacity = 1,
+              #          na.label = "NA") 
+          }
+        }
+    })    
 
-saveWidget(SchoolMap, file = "SchoolMap.html", selfcontained = TRUE, libdir = 'leafletwidget_libs')
+    
+    
+#X-Y SCATTER#####
+    #make tooltip####
+    
+    TwoDPlot <- reactive({
+      ggplot(SelectedData(), aes(x = VAR, y = VAR2)) +
+        geom_rect(aes(xmin = 0,                       #A1
+                      xmax = max(VAR, na.rm = TRUE)/3,
+                      ymin = 0,
+                      ymax = max(VAR2)/3),
+                  fill = palette[7]) + 
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/6, 
+                      y = max(VAR2, na.rm = TRUE)/6, 
+                      label = "A1"), 
+                  size = 6) +
+        geom_rect(aes(xmin = max(VAR, na.rm = TRUE)/3,             #B1
+                      xmax = 2*max(VAR, na.rm = TRUE)/3,
+                      ymin = 0,
+                      ymax = max(VAR2, na.rm = TRUE)/3),
+                  fill = palette[8]) + 
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/2, 
+                      y = max(VAR2, na.rm = TRUE)/6, 
+                      label = "B1"), 
+                  size = 6) +
+        geom_rect(aes(xmin = 2*max(VAR, na.rm = TRUE)/3,           #C1  
+                      xmax = max(VAR, na.rm = TRUE),
+                      ymin = 0,
+                      ymax = max(VAR2, na.rm = TRUE)/3),
+                  fill = palette[9]) + 
+        geom_text(aes(x = 5*max(VAR, na.rm = TRUE)/6, 
+                      y = max(VAR2, na.rm = TRUE)/6, 
+                      label = "C1"), 
+                  size = 6) +
+        geom_rect(aes(xmin = 0,                       #A2
+                      xmax = max(VAR, na.rm = TRUE)/3,
+                      ymin = max(VAR2, na.rm = TRUE)/3,
+                      ymax = 2*max(VAR2, na.rm = TRUE)/3),
+                  fill = palette[4]) + 
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/6, 
+                      y = max(VAR2, na.rm = TRUE)/2, 
+                      label = "A2"), 
+                  size = 6) +
+        geom_rect(aes(xmin = max(VAR, na.rm = TRUE)/3,             #B2
+                      xmax = 2*max(VAR, na.rm = TRUE)/3,
+                      ymin = max(VAR2, na.rm = TRUE)/3,
+                      ymax = 2*max(VAR2, na.rm = TRUE)/3),
+                  fill = palette[5]) + 
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/2, 
+                      y = max(VAR2, na.rm = TRUE)/2, 
+                      label = "B2"), 
+                  size = 6) +
+        geom_rect(aes(xmin = 2*max(VAR, na.rm = TRUE)/3,            #C2
+                      xmax = max(VAR, na.rm = TRUE),
+                      ymin = max(VAR2, na.rm = TRUE)/3,
+                      ymax = 2*max(VAR2, na.rm = TRUE)/3),
+                  fill = palette[6]) + 
+        geom_text(aes(x = 5*max(VAR, na.rm = TRUE)/6, 
+                      y = max(VAR2, na.rm = TRUE)/2, 
+                      label = "C2"), 
+                  size = 6) +
+        geom_rect(aes(xmin = 0,                       #A3
+                      xmax = max(VAR, na.rm = TRUE)/3,
+                      ymin = 2*max(VAR2, na.rm = TRUE)/3,
+                      ymax = max(VAR2, na.rm = TRUE)),
+                  fill = palette[1]) + 
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/6, 
+                      y = 5*max(VAR2, na.rm = TRUE)/6, 
+                      label = "A3"), 
+                  size = 6) +
+        geom_rect(aes(xmin = max(VAR, na.rm = TRUE)/3,             #B3
+                      xmax = 2*max(VAR, na.rm = TRUE)/3,
+                      ymin = 2*max(VAR2, na.rm = TRUE)/3,
+                      ymax = max(VAR2, na.rm = TRUE)),
+                  fill = palette[2]) +
+        geom_text(aes(x = max(VAR, na.rm = TRUE)/2, 
+                      y = 5*max(VAR2, na.rm = TRUE)/6, 
+                      label = "B3"), 
+                  size = 6) +
+        geom_rect(aes(xmin = 2*max(VAR, na.rm = TRUE)/3,           #C3
+                      xmax = max(VAR, na.rm = TRUE),
+                      ymin = 2*max(VAR2, na.rm = TRUE)/3,
+                      ymax = max(VAR2, na.rm = TRUE)),
+                  fill = palette[3]) + 
+        geom_text(aes(x = 5*max(VAR, na.rm = TRUE)/6, 
+                      y = 5*max(VAR2, na.rm = TRUE)/6, 
+                      label = "C3"), 
+                  size = 6) +
+        ylab(expression(atop("VAR2", paste("Low        " %->% "        High")))) +
+        xlab(expression(atop(paste("Low        " %->% "        High"), "VAR"))) +
+        theme(legend.title = element_blank(),
+              axis.title.y = element_text(size = 12),
+              axis.title.x = element_text(size = 12),
+              axis.text.x = element_text(size = 10),
+              axis.text.y = element_text(size = 10),
+              panel.background = element_rect(fill = "white"),
+              panel.grid = element_blank(),
+              axis.ticks = element_blank(),
+              legend.position = "none"
+        ) #+
+        #geom_point() #problem: these are actually quantiles, not linear things...
+    })
+    
+    OneDPlot <- reactive({
+      ggplot(SelectedData(), aes(x = 1, y = VAR, color = VAR)) +
+            stat_boxplot(geom = "errorbar", width = 0.03, color = "blue", size = 1) +
+            geom_boxplot(width = 0.03, color = "blue", size = 1, fill = "blue", alpha = 0.2) +
+            geom_point(size = 5, alpha = 0.6) +
+            expand_limits(y = 0) +
+            scale_y_continuous(breaks = c(0, max(ceiling(SelectedData()$VAR), na.rm = TRUE))) +
+            scale_color_gradientn(colors = LeafletPalette()(range(SelectedData()$VAR, na.rm = TRUE))) +
+            geom_vline(xintercept = 1, color = "black", size = 0.5) +
+            coord_flip() +
+            ylab("Incidence") +
+            theme(legend.title = element_blank(),
+                  axis.title.y = element_blank(),
+                  axis.title.x = element_text(size = 12),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_blank(),
+                  panel.background = element_rect(fill = "white"),
+                  panel.grid = element_blank(),
+                  axis.ticks = element_blank(),
+                  legend.position = "none",
+                  aspect.ratio = 0.05)
+          #the colors don't actually match - hue or saturation must be different
+          #optimize how the box looks, maybe some opaque fill? 
+          #label mean and 1stdev
+          #anything else to make this interpretable
+          #pop up for country? - try plotly (ggplotly)
+    })  
+    
+    
+    output$TZEdPlot <- renderPlot({
+      if (2 %in% input$AggregationSelect) {
+        if("NONE" %in% input$DisSecondSelect) {
+          OneDPlot()
+        } else {  
+          TwoDPlot()
+        }
+      } else if (3 %in% input$AggregationSelect) {
+        if("NONE" %in% input$RegSecondSelect) {
+          OneDPlot()
+        } else {  
+          TwoDPlot()
+        }
+      } else {
+        OneDPlot()
+      }
+    })
+    
+  }
+  
+  shinyApp(ui = ui, server = server)
 
-
-plot(PovertyMap)
-plot(PopMap)
 
